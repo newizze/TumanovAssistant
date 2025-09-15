@@ -1,0 +1,11 @@
+{
+    "mcpServers": {
+        "laravel-boost": {
+            "command": "/Applications/MAMP/bin/php/php8.2.0/bin/php",
+            "args": [
+                "/Users/vladislavumnov/Workspace/tumanov/TumanovAssistant/artisan",
+                "boost:mcp"
+            ]
+        }
+    }
+}
