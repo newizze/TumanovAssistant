@@ -35,4 +35,19 @@ return [
             'Content-Type' => 'application/json',
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Google Sheets Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for Google Sheets integration including default
+    | spreadsheet and range settings for task management.
+    |
+    */
+    'google_sheets' => [
+        'default_spreadsheet_id' => env('GOOGLE_SHEETS_SPREADSHEET_ID'),
+        'default_range' => env('GOOGLE_SHEETS_DEFAULT_RANGE', 'Sheet1!A:Z'),
+        'credentials_path' => base_path('credentials.json'),
+    ],
 ];

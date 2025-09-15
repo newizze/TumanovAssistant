@@ -101,6 +101,42 @@ vendor/bin/rector                                   # Apply code modernization
 
 The application uses Google Sheets as the primary database through the Google Sheets API. Credentials are stored in `/credentials.json`.
 
+### Automatic Task Creation
+
+The bot automatically creates rows in Google Sheets when AI detects task-related content in user messages:
+
+**Architecture Components:**
+- `GoogleSheetsService` - Extends `HttpService`, handles Google Sheets API authentication and requests
+- `AddRowToGoogleSheetsAction` - Business logic for adding rows
+- `AddRowToSheetsToolDefinition` - AI tool definition for task creation
+- `AddRowToSheetsToolHandler` - Processes AI tool calls
+- `MessageProcessingService` - Orchestrates AI analysis and tool execution
+
+**Configuration:**
+```bash
+# Required environment variables
+GOOGLE_SHEETS_SPREADSHEET_ID=your_spreadsheet_id
+GOOGLE_SHEETS_DEFAULT_RANGE=Sheet1!A:Z  # Optional, defaults to Sheet1!A:Z
+```
+
+**How it works:**
+1. User sends text/voice message via Telegram
+2. AI analyzes message using existing `task_creation.xml` prompt
+3. If AI detects a task, it calls `add_row_to_sheets` tool
+4. New row automatically added to configured Google Sheets
+5. User receives confirmation message
+
+**Data Structure (columns added to sheet):**
+- Task Title
+- Task Description  
+- Priority (Высокий/Средний/Низкий)
+- Category (IT/Продажи/Маркетинг/Управление)
+- Responsible Person
+- Due Date
+- Tags
+- Created Date
+- Status (Новая)
+
 ## AI Integration
 
 - **OpenAI GPT-4o**: Message structuring and task creation

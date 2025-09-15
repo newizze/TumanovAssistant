@@ -6,6 +6,8 @@ namespace App\Http\Controllers;
 
 use App\DTOs\Telegram\TelegramSendMessageDto;
 use App\DTOs\Telegram\TelegramWebhookDto;
+use App\Models\User;
+use App\Services\MessageProcessingService;
 use App\Services\OpenAIResponseService;
 use App\Services\TelegramService;
 use Exception;
@@ -18,6 +20,7 @@ class TelegramController extends Controller
     public function __construct(
         private readonly TelegramService $telegramService,
         private readonly OpenAIResponseService $openAIService,
+        private readonly MessageProcessingService $messageProcessingService,
     ) {}
 
     public function webhook(Request $request): JsonResponse
@@ -117,7 +120,9 @@ class TelegramController extends Controller
             'text_length' => strlen($message->text),
         ]);
 
-        $this->sendReply($message->chat->id, 'Получил ваше текстовое сообщение: ' . $message->text);
+        $user = $this->getOrCreateUser($message->from);
+        $response = $this->messageProcessingService->processMessage($message->text, $user);
+        $this->sendReply($message->chat->id, $response);
     }
 
     private function processVoiceMessage($message): void
@@ -157,8 +162,10 @@ class TelegramController extends Controller
                 return;
             }
 
-            $responseText = "🎤 Распознанный текст:\n\n" . $transcription->text;
-            $this->sendReply($message->chat->id, $responseText);
+            // Обрабатываем распознанный текст через AI
+            $user = $this->getOrCreateUser($message->from);
+            $response = $this->messageProcessingService->processMessage($transcription->text, $user);
+            $this->sendReply($message->chat->id, $response);
 
             Log::info('Voice message processed successfully', [
                 'message_id' => $message->messageId,
@@ -230,5 +237,17 @@ class TelegramController extends Controller
         }
 
         return $isValid;
+    }
+
+    private function getOrCreateUser($telegramUser): User
+    {
+        return User::firstOrCreate(
+            ['telegram_id' => $telegramUser->id],
+            [
+                'name' => $telegramUser->firstName . ($telegramUser->lastName ? ' ' . $telegramUser->lastName : ''),
+                'username' => $telegramUser->username,
+                'telegram_id' => $telegramUser->id,
+            ]
+        );
     }
 }

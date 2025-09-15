@@ -21,8 +21,8 @@ class HttpService
 
     public function __construct()
     {
-        $this->retryAttempts = config('project.http.retry_attempts', 3);
-        $this->retryDelay = config('project.http.retry_delay', 1000);
+        $this->retryAttempts = (int) config('project.http.retry_attempts', 3);
+        $this->retryDelay = (int) config('project.http.retry_delay', 1000);
         $this->defaultHeaders = config('project.api.default_headers', []);
     }
 
