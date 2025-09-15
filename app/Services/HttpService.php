@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-final readonly class HttpService
+class HttpService
 {
     private int $retryAttempts;
     private int $retryDelay;
