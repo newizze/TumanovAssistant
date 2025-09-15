@@ -40,4 +40,9 @@ return [
         'organization' => env('OPENAI_ORGANIZATION'),
     ],
 
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'webhook_secret_token' => env('TELEGRAM_WEBHOOK_SECRET_TOKEN'),
+    ],
+
 ];

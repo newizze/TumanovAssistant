@@ -30,11 +30,11 @@ final readonly class HttpResponseDto
         return $this->statusCode >= 500;
     }
 
-    public function getJsonData(): ?array
+    public function getJsonData(): array
     {
         $decoded = json_decode($this->body, true);
         
-        return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+        return json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : [];
     }
 
     public function hasError(): bool

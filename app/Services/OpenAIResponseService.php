@@ -9,16 +9,22 @@ use App\DTOs\OpenAI\ConversationRequestDto;
 use App\DTOs\OpenAI\ConversationResponseDto;
 use App\DTOs\OpenAI\ModelResponseDto;
 use App\DTOs\OpenAI\ResponseRequestDto;
+use App\DTOs\OpenAI\WhisperTranscriptionRequestDto;
+use App\DTOs\OpenAI\WhisperTranscriptionResponseDto;
 use App\Models\User;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class OpenAIResponseService extends HttpService
 {
     private const OPENAI_BASE_URL = 'https://api.openai.com/v1';
     private const CONVERSATIONS_ENDPOINT = '/conversations';
     private const RESPONSES_ENDPOINT = '/responses';
+    private const TRANSCRIPTIONS_ENDPOINT = '/audio/transcriptions';
     private const CONVERSATION_TIMEOUT_HOURS = 1;
 
     private string $apiKey;
@@ -183,5 +189,81 @@ class OpenAIResponseService extends HttpService
             'user_id' => $user->id,
             'conversation_id' => $conversationId,
         ]);
+    }
+
+    public function transcribeAudio(WhisperTranscriptionRequestDto $requestDto): WhisperTranscriptionResponseDto
+    {
+        Log::info('Starting audio transcription', [
+            'model' => $requestDto->model,
+            'file_path' => $requestDto->filePath,
+            'language' => $requestDto->language,
+        ]);
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->apiKey}",
+            ])->timeout(60)->attach(
+                'file',
+                file_get_contents($requestDto->filePath),
+                basename($requestDto->filePath)
+            )->post(
+                self::OPENAI_BASE_URL . self::TRANSCRIPTIONS_ENDPOINT,
+                $requestDto->toMultipartArray()
+            );
+
+            if (!$response->successful()) {
+                Log::error('Audio transcription failed', [
+                    'status_code' => $response->status(),
+                    'error' => $response->body(),
+                ]);
+                
+                throw new Exception("Transcription failed: {$response->body()}");
+            }
+
+            $responseData = $response->json();
+            $transcription = WhisperTranscriptionResponseDto::fromArray($responseData);
+
+            Log::info('Audio transcription completed successfully', [
+                'text_length' => strlen($transcription->text),
+                'language' => $transcription->language,
+                'duration' => $transcription->duration,
+            ]);
+
+            return $transcription;
+
+        } catch (RequestException $e) {
+            Log::error('HTTP request failed during transcription', [
+                'error' => $e->getMessage(),
+            ]);
+            
+            throw new Exception("Transcription request failed: {$e->getMessage()}");
+        }
+    }
+
+    public function transcribeAudioFromContent(string $audioContent, string $filename = 'audio.ogg', ?string $language = null): WhisperTranscriptionResponseDto
+    {
+        $tempPath = storage_path('app/temp/' . uniqid() . '_' . $filename);
+        
+        try {
+            if (!is_dir(dirname($tempPath))) {
+                mkdir(dirname($tempPath), 0755, true);
+            }
+
+            file_put_contents($tempPath, $audioContent);
+
+            $requestDto = new WhisperTranscriptionRequestDto(
+                filePath: $tempPath,
+                language: $language,
+            );
+
+            $result = $this->transcribeAudio($requestDto);
+
+            return $result;
+
+        } finally {
+            if (file_exists($tempPath)) {
+                unlink($tempPath);
+            }
+        }
     }
 }
