@@ -12,8 +12,7 @@ final readonly class HttpResponseDto
         public array $headers = [],
         public bool $isSuccessful = false,
         public ?string $errorMessage = null,
-    ) {
-    }
+    ) {}
 
     public function isOk(): bool
     {
@@ -33,12 +32,12 @@ final readonly class HttpResponseDto
     public function getJsonData(): array
     {
         $decoded = json_decode($this->body, true);
-        
+
         return json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : [];
     }
 
     public function hasError(): bool
     {
-        return $this->errorMessage !== null || !$this->isOk();
+        return $this->errorMessage !== null || ! $this->isOk();
     }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tools;
 
 use App\Actions\AddRowToGoogleSheetsAction;
-use App\DTOs\GoogleSheets\GoogleSheetsResponseDto;
 use Illuminate\Support\Facades\Log;
 
 class AddRowToSheetsToolHandler
@@ -27,7 +26,7 @@ class AddRowToSheetsToolHandler
                 if (empty($arguments[$field])) {
                     return [
                         'success' => false,
-                        'error' => "Обязательное поле '{$field}' не заполнено"
+                        'error' => "Обязательное поле '{$field}' не заполнено",
                     ];
                 }
             }
@@ -39,21 +38,40 @@ class AddRowToSheetsToolHandler
             if (empty($spreadsheetId)) {
                 return [
                     'success' => false,
-                    'error' => 'Не настроен ID таблицы Google Sheets'
+                    'error' => 'Не настроен ID таблицы Google Sheets',
                 ];
             }
 
-            // Подготавливаем данные для строки
+            // Генерируем уникальный ID задачи
+            $taskId = strtoupper(substr(md5(uniqid()), 0, 8));
+
+            // Находим исполнителя по short_code
+            $executors = config('project.executors', []);
+            $executorInfo = collect($executors)->firstWhere('short_code', $arguments['executor'] ?? '');
+
+            // Подготавливаем данные для строки согласно структуре таблицы
             $rowData = [
-                $arguments['task_title'],
-                $arguments['task_description'],
-                $arguments['priority'],
-                $arguments['category'],
-                $arguments['responsible_person'] ?? '',
-                $arguments['due_date'] ?? '',
-                $arguments['tags'] ?? '',
-                date('Y-m-d H:i:s'), // Дата создания
-                'Новая' // Статус
+                $taskId, // ID
+                date('d.m.Y H:i:s'), // Дата создания
+                $arguments['sender_name'] ?? '', // Отправитель ФИО
+                $arguments['executor'] ?? '', // Исполнитель (short_code)
+                $arguments['task_type'] ?? '', // Тип задачи
+                $arguments['task_title'], // Краткое название
+                $arguments['task_description'], // Подробное описание
+                $arguments['expected_result'] ?? '', // Ожидаемый конечный результат
+                $arguments['priority'], // Приоритет
+                $arguments['file_link_1'] ?? '', // Ссылка на файл отправителя 1
+                $arguments['file_link_2'] ?? '', // Ссылка на файл отправителя 2
+                $arguments['file_link_3'] ?? '', // Ссылка на файл отправителя 3
+                '', // План исполнителя
+                'Неразобранная', // Статус
+                '', // Дата факт готово
+                '', // Приложение от исполнителя
+                '', // Комментарий исполнителя
+                '', // Дата первого выхода из Неразобранная
+                $executorInfo['tg_username'] ?? '', // Почта сотрудника (используем tg_username)
+                $arguments['priority'], // Приоритет.
+                $executorInfo['tg_username'] ?? '', // Тг сотрудника
             ];
 
             // Добавляем строку в таблицу
@@ -71,7 +89,7 @@ class AddRowToSheetsToolHandler
 
                 return [
                     'success' => false,
-                    'error' => $result->errorMessage
+                    'error' => $result->errorMessage,
                 ];
             }
 
@@ -84,7 +102,7 @@ class AddRowToSheetsToolHandler
                 'success' => true,
                 'message' => "Задача '{$arguments['task_title']}' успешно добавлена в таблицу",
                 'updated_cells' => $result->updatedCells,
-                'spreadsheet_id' => $spreadsheetId
+                'spreadsheet_id' => $spreadsheetId,
             ];
 
         } catch (\Throwable $e) {
@@ -95,7 +113,7 @@ class AddRowToSheetsToolHandler
 
             return [
                 'success' => false,
-                'error' => 'Произошла ошибка при добавлении задачи: ' . $e->getMessage()
+                'error' => 'Произошла ошибка при добавлении задачи: '.$e->getMessage(),
             ];
         }
     }

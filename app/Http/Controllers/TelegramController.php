@@ -9,6 +9,7 @@ use App\DTOs\Telegram\TelegramWebhookDto;
 use App\Models\User;
 use App\Services\MessageProcessingService;
 use App\Services\OpenAIResponseService;
+use App\Services\TelegramFileService;
 use App\Services\TelegramService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +22,7 @@ class TelegramController extends Controller
         private readonly TelegramService $telegramService,
         private readonly OpenAIResponseService $openAIService,
         private readonly MessageProcessingService $messageProcessingService,
+        private readonly TelegramFileService $telegramFileService,
     ) {}
 
     public function webhook(Request $request): JsonResponse
@@ -33,15 +35,17 @@ class TelegramController extends Controller
             ]);
 
             // Validate webhook secret token if configured
-            if (!$this->validateWebhookSecret($request)) {
+            if (! $this->validateWebhookSecret($request)) {
                 Log::warning('Telegram webhook secret token validation failed');
+
                 return response()->json(['error' => 'Unauthorized'], 401);
             }
 
             $data = $request->json()->all();
-            
+
             if (empty($data)) {
                 Log::warning('Telegram webhook received empty data');
+
                 return response()->json(['ok' => true]);
             }
 
@@ -52,7 +56,7 @@ class TelegramController extends Controller
             ]);
 
             $webhookDto = TelegramWebhookDto::fromArray($data);
-            
+
             $this->processWebhook($webhookDto);
 
             return response()->json(['ok' => true]);
@@ -87,18 +91,22 @@ class TelegramController extends Controller
             'chat_id' => $message->chat->id,
             'has_text' => $message->hasText(),
             'has_voice' => $message->hasVoice(),
+            'has_photo' => $message->hasPhoto(),
+            'has_document' => $message->hasDocument(),
+            'has_files' => $message->hasFiles(),
             'is_private' => $message->isPrivateChat(),
         ]);
 
-        if (!$message->isPrivateChat()) {
+        if (! $message->isPrivateChat()) {
             Log::info('Ignoring non-private chat message', [
                 'chat_type' => $message->chat->type,
                 'chat_id' => $message->chat->id,
             ]);
+
             return;
         }
 
-        if ($message->hasText()) {
+        if ($message->hasText() || $message->hasFiles()) {
             $this->processTextMessage($message);
         } elseif ($message->hasVoice()) {
             $this->processVoiceMessage($message);
@@ -108,21 +116,66 @@ class TelegramController extends Controller
                 'user_id' => $message->from->id,
             ]);
 
-            $this->sendReply($message->chat->id, 'Извините, я поддерживаю только текстовые и голосовые сообщения.');
+            $this->sendReply($message->chat->id, 'Извините, я поддерживаю только текстовые сообщения, фото, документы и голосовые сообщения.');
         }
     }
 
     private function processTextMessage($message): void
     {
+        $messageText = $message->getMessageText();
+
         Log::info('Processing text message', [
             'message_id' => $message->messageId,
             'user_id' => $message->from->id,
-            'text_length' => strlen($message->text),
+            'text_length' => $messageText ? strlen((string) $messageText) : 0,
+            'has_files' => $message->hasFiles(),
         ]);
 
-        $user = $this->getOrCreateUser($message->from);
-        $response = $this->messageProcessingService->processMessage($message->text, $user);
-        $this->sendReply($message->chat->id, $response);
+        // Обрабатываем файлы если есть
+        $fileLinks = [];
+        if ($message->hasFiles()) {
+            $this->sendReply($message->chat->id, 'Получил ваши файлы. Скачиваю...');
+
+            $fileIds = $message->getAllFileIds();
+            $fileLinks = $this->telegramFileService->processMessageFiles($fileIds);
+
+            if (! empty($fileLinks)) {
+                Log::info('Files processed successfully', [
+                    'message_id' => $message->messageId,
+                    'user_id' => $message->from->id,
+                    'file_count' => count($fileLinks),
+                ]);
+
+                $this->sendReply(
+                    $message->chat->id,
+                    'Файлы успешно обработаны: '.count($fileLinks).' шт.'
+                );
+            } else {
+                Log::warning('Failed to process files', [
+                    'message_id' => $message->messageId,
+                    'user_id' => $message->from->id,
+                    'file_ids' => $fileIds,
+                ]);
+
+                $this->sendReply($message->chat->id, 'Не удалось обработать файлы.');
+            }
+        }
+
+        // Если есть текст или файлы - обрабатываем через AI
+        if ($messageText || ! empty($fileLinks)) {
+            $user = $this->getOrCreateUser($message->from);
+
+            // Передаем текст и ссылки на файлы в MessageProcessingService
+            $response = $this->messageProcessingService->processMessage(
+                $messageText ?? '',
+                $user,
+                $fileLinks
+            );
+
+            $this->sendReply($message->chat->id, $response);
+        } else {
+            $this->sendReply($message->chat->id, 'Не удалось обработать ваше сообщение.');
+        }
     }
 
     private function processVoiceMessage($message): void
@@ -138,16 +191,18 @@ class TelegramController extends Controller
 
         try {
             $fileDto = $this->telegramService->getFile($message->voice->fileId);
-            
-            if (!$fileDto) {
+
+            if (! $fileDto) {
                 $this->sendReply($message->chat->id, 'Ошибка: не удалось получить информацию о файле.');
+
                 return;
             }
 
             $audioContent = $this->telegramService->downloadFile($fileDto);
-            
-            if (!$audioContent) {
+
+            if (! $audioContent) {
                 $this->sendReply($message->chat->id, 'Ошибка: не удалось скачать аудиофайл.');
+
                 return;
             }
 
@@ -157,8 +212,9 @@ class TelegramController extends Controller
                 language: 'ru'
             );
 
-            if (!$transcription->hasText()) {
+            if (! $transcription->hasText()) {
                 $this->sendReply($message->chat->id, 'Не удалось распознать текст из голосового сообщения.');
+
                 return;
             }
 
@@ -203,7 +259,7 @@ class TelegramController extends Controller
 
         $success = $this->telegramService->sendMessage($messageDto);
 
-        if (!$success) {
+        if (! $success) {
             Log::error('Failed to send reply message', [
                 'chat_id' => $chatId,
                 'text_length' => strlen($text),
@@ -214,24 +270,25 @@ class TelegramController extends Controller
     private function validateWebhookSecret(Request $request): bool
     {
         $expectedToken = config('services.telegram.webhook_secret_token');
-        
+
         // If no secret token is configured, skip validation
         if (empty($expectedToken)) {
             return true;
         }
 
         $providedToken = $request->header('X-Telegram-Bot-Api-Secret-Token');
-        
+
         if (empty($providedToken)) {
             Log::warning('Telegram webhook missing secret token header');
+
             return false;
         }
 
         $isValid = hash_equals($expectedToken, $providedToken);
-        
-        if (!$isValid) {
+
+        if (! $isValid) {
             Log::warning('Telegram webhook secret token mismatch', [
-                'expected_length' => strlen($expectedToken),
+                'expected_length' => strlen((string) $expectedToken),
                 'provided_length' => strlen($providedToken),
             ]);
         }
@@ -244,7 +301,7 @@ class TelegramController extends Controller
         return User::firstOrCreate(
             ['telegram_id' => $telegramUser->id],
             [
-                'name' => $telegramUser->firstName . ($telegramUser->lastName ? ' ' . $telegramUser->lastName : ''),
+                'name' => $telegramUser->firstName.($telegramUser->lastName ? ' '.$telegramUser->lastName : ''),
                 'username' => $telegramUser->username,
                 'telegram_id' => $telegramUser->id,
             ]

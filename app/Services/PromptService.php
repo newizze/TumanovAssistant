@@ -15,9 +15,9 @@ class PromptService
 
     public function loadPrompt(string $promptName, array $variables = []): string
     {
-        $filePath = base_path(self::PROMPTS_PATH . "/{$promptName}.xml");
+        $filePath = base_path(self::PROMPTS_PATH."/{$promptName}.xml");
 
-        if (!File::exists($filePath)) {
+        if (! File::exists($filePath)) {
             Log::error('Prompt file not found', ['file' => $filePath]);
             throw new Exception("Prompt file '{$promptName}.xml' not found");
         }
@@ -25,16 +25,16 @@ class PromptService
         try {
             $xmlContent = File::get($filePath);
             $xml = new SimpleXMLElement($xmlContent);
-            
+
             $prompt = $this->buildPromptFromXml($xml);
-            
+
             return $this->substituteVariables($prompt, $variables);
         } catch (Exception $e) {
             Log::error('Failed to load prompt', [
                 'file' => $filePath,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            throw new Exception("Failed to load prompt '{$promptName}': " . $e->getMessage());
+            throw new Exception("Failed to load prompt '{$promptName}': ".$e->getMessage());
         }
     }
 
@@ -43,11 +43,11 @@ class PromptService
         $parts = [];
 
         if (isset($xml->system)) {
-            $parts[] = "System: " . trim((string) $xml->system);
+            $parts[] = 'System: '.trim((string) $xml->system);
         }
 
         if (isset($xml->instruction)) {
-            $parts[] = "Instruction: " . trim((string) $xml->instruction);
+            $parts[] = 'Instruction: '.trim((string) $xml->instruction);
         }
 
         return implode("\n\n", $parts);
@@ -56,7 +56,7 @@ class PromptService
     private function substituteVariables(string $prompt, array $variables): string
     {
         foreach ($variables as $key => $value) {
-            $placeholder = "{{" . $key . "}}";
+            $placeholder = '{{'.$key.'}}';
             $prompt = str_replace($placeholder, (string) $value, $prompt);
         }
 
@@ -70,9 +70,9 @@ class PromptService
         if (preg_match('/\{\{.*?\}\}/', $prompt)) {
             preg_match_all('/\{\{(.*?)\}\}/', $prompt, $matches);
             $missingVariables = $matches[1];
-            
+
             Log::warning('Unsubstituted variables found in prompt', [
-                'variables' => $missingVariables
+                'variables' => $missingVariables,
             ]);
         }
     }
@@ -80,15 +80,13 @@ class PromptService
     public function getAvailablePrompts(): array
     {
         $promptsPath = base_path(self::PROMPTS_PATH);
-        
-        if (!File::isDirectory($promptsPath)) {
+
+        if (! File::isDirectory($promptsPath)) {
             return [];
         }
 
-        $files = File::glob($promptsPath . '/*.xml');
-        
-        return array_map(function ($file) {
-            return pathinfo($file, PATHINFO_FILENAME);
-        }, $files);
+        $files = File::glob($promptsPath.'/*.xml');
+
+        return array_map(fn ($file) => pathinfo((string) $file, PATHINFO_FILENAME), $files);
     }
 }

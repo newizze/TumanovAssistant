@@ -14,13 +14,13 @@ class TelegramService extends HttpService
 {
     private const TELEGRAM_API_BASE_URL = 'https://api.telegram.org/bot';
 
-    private string $botToken;
+    private readonly string $botToken;
 
     public function __construct()
     {
         parent::__construct();
         $this->botToken = config('services.telegram.bot_token');
-        
+
         if (empty($this->botToken)) {
             throw new Exception('Telegram bot token not configured');
         }
@@ -42,14 +42,14 @@ class TelegramService extends HttpService
 
         $response = $this->request($httpRequest);
 
-        if (!$response->isOk()) {
+        if (! $response->isOk()) {
             Log::error('Failed to send Telegram message', [
                 'chat_id' => $messageDto->chatId,
                 'status_code' => $response->statusCode,
                 'error' => $response->errorMessage,
                 'response_body' => $response->body,
             ]);
-            
+
             return false;
         }
 
@@ -75,24 +75,24 @@ class TelegramService extends HttpService
 
         $response = $this->request($httpRequest);
 
-        if (!$response->isOk()) {
+        if (! $response->isOk()) {
             Log::error('Failed to get Telegram file info', [
                 'file_id' => $fileId,
                 'status_code' => $response->statusCode,
                 'error' => $response->errorMessage,
             ]);
-            
+
             return null;
         }
 
         $responseData = $response->getJsonData();
-        
-        if (!$responseData['ok'] || !isset($responseData['result'])) {
+
+        if (! $responseData['ok'] || ! isset($responseData['result'])) {
             Log::error('Invalid Telegram API response for file info', [
                 'file_id' => $fileId,
                 'response' => $responseData,
             ]);
-            
+
             return null;
         }
 
@@ -101,16 +101,16 @@ class TelegramService extends HttpService
 
     public function downloadFile(TelegramFileDto $fileDto): ?string
     {
-        if (!$fileDto->filePath) {
+        if (! $fileDto->filePath) {
             Log::error('File path not available for download', [
                 'file_id' => $fileDto->fileId,
             ]);
-            
+
             return null;
         }
 
         $fileUrl = $fileDto->getFileUrl($this->botToken);
-        
+
         $httpRequest = new HttpRequestDto(
             method: 'GET',
             url: $fileUrl,
@@ -124,13 +124,13 @@ class TelegramService extends HttpService
 
         $response = $this->request($httpRequest);
 
-        if (!$response->isOk()) {
+        if (! $response->isOk()) {
             Log::error('Failed to download Telegram file', [
                 'file_id' => $fileDto->fileId,
                 'status_code' => $response->statusCode,
                 'error' => $response->errorMessage,
             ]);
-            
+
             return null;
         }
 
@@ -145,7 +145,7 @@ class TelegramService extends HttpService
     public function setWebhook(string $url, ?string $secretToken = null): bool
     {
         $data = ['url' => $url];
-        
+
         if ($secretToken) {
             $data['secret_token'] = $secretToken;
         }
@@ -164,25 +164,25 @@ class TelegramService extends HttpService
 
         $response = $this->request($httpRequest);
 
-        if (!$response->isOk()) {
+        if (! $response->isOk()) {
             Log::error('Failed to set Telegram webhook', [
                 'url' => $url,
                 'status_code' => $response->statusCode,
                 'error' => $response->errorMessage,
                 'response_body' => $response->body,
             ]);
-            
+
             return false;
         }
 
         $responseData = $response->getJsonData();
-        
-        if (!$responseData['ok']) {
+
+        if (! $responseData['ok']) {
             Log::error('Telegram API returned error for webhook setup', [
                 'url' => $url,
                 'response' => $responseData,
             ]);
-            
+
             return false;
         }
 
@@ -203,22 +203,22 @@ class TelegramService extends HttpService
 
         $response = $this->request($httpRequest);
 
-        if (!$response->isOk()) {
+        if (! $response->isOk()) {
             Log::error('Failed to get Telegram webhook info', [
                 'status_code' => $response->statusCode,
                 'error' => $response->errorMessage,
             ]);
-            
+
             return [];
         }
 
         $responseData = $response->getJsonData();
-        
+
         return $responseData['ok'] ? $responseData['result'] : [];
     }
 
     private function getApiUrl(string $method): string
     {
-        return self::TELEGRAM_API_BASE_URL . $this->botToken . '/' . $method;
+        return self::TELEGRAM_API_BASE_URL.$this->botToken.'/'.$method;
     }
 }

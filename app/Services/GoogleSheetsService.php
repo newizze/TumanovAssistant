@@ -12,12 +12,12 @@ use Illuminate\Support\Facades\Log;
 class GoogleSheetsService extends HttpService
 {
     private const SHEETS_API_BASE_URL = 'https://sheets.googleapis.com/v4/spreadsheets';
-    
+
     public function addRow(GoogleSheetsAddRowDto $dto): GoogleSheetsResponseDto
     {
         try {
             $accessToken = $this->getAccessToken();
-            if (!$accessToken) {
+            if (! $accessToken) {
                 return GoogleSheetsResponseDto::error('Failed to get access token');
             }
 
@@ -52,7 +52,7 @@ class GoogleSheetsService extends HttpService
             }
 
             $responseData = $response->getJsonData();
-            
+
             Log::info('Successfully added row to Google Sheets', [
                 'spreadsheet_id' => $dto->spreadsheetId,
                 'range' => $dto->range,
@@ -76,16 +76,18 @@ class GoogleSheetsService extends HttpService
     {
         try {
             $credentialsPath = base_path('credentials.json');
-            
-            if (!file_exists($credentialsPath)) {
+
+            if (! file_exists($credentialsPath)) {
                 Log::error('Google credentials file not found', ['path' => $credentialsPath]);
+
                 return null;
             }
 
             $credentials = json_decode(file_get_contents($credentialsPath), true);
-            
-            if (!$credentials) {
+
+            if (! $credentials) {
                 Log::error('Failed to parse Google credentials file');
+
                 return null;
             }
 
@@ -112,7 +114,7 @@ class GoogleSheetsService extends HttpService
             $headerEncoded = $this->base64UrlEncode(json_encode($header));
             $payloadEncoded = $this->base64UrlEncode(json_encode($payload));
             $signature = $this->signJWT("$headerEncoded.$payloadEncoded", $credentials['private_key']);
-            
+
             $jwt = "$headerEncoded.$payloadEncoded.$signature";
 
             // Request access token
@@ -132,16 +134,19 @@ class GoogleSheetsService extends HttpService
                     'error' => $response->errorMessage,
                     'status_code' => $response->statusCode,
                 ]);
+
                 return null;
             }
 
             $tokenData = $response->getJsonData();
+
             return $tokenData['access_token'] ?? null;
 
         } catch (\Throwable $e) {
             Log::error('Exception occurred while getting Google access token', [
                 'exception' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -154,13 +159,13 @@ class GoogleSheetsService extends HttpService
     private function signJWT(string $message, string $privateKey): string
     {
         $key = openssl_pkey_get_private($privateKey);
-        
-        if (!$key) {
+
+        if (! $key) {
             throw new \Exception('Invalid private key');
         }
 
         openssl_sign($message, $signature, $key, OPENSSL_ALGO_SHA256);
-        
+
         return $this->base64UrlEncode($signature);
     }
 }

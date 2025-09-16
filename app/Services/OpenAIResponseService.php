@@ -17,23 +17,26 @@ use Exception;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class OpenAIResponseService extends HttpService
 {
     private const OPENAI_BASE_URL = 'https://api.openai.com/v1';
+
     private const CONVERSATIONS_ENDPOINT = '/conversations';
+
     private const RESPONSES_ENDPOINT = '/responses';
+
     private const TRANSCRIPTIONS_ENDPOINT = '/audio/transcriptions';
+
     private const CONVERSATION_TIMEOUT_HOURS = 1;
 
-    private string $apiKey;
+    private readonly string $apiKey;
 
     public function __construct()
     {
         parent::__construct();
         $this->apiKey = config('services.openai.api_key');
-        
+
         if (empty($this->apiKey)) {
             throw new Exception('OpenAI API key not configured');
         }
@@ -42,8 +45,8 @@ class OpenAIResponseService extends HttpService
     public function createResponse(ResponseRequestDto $requestDto, User $user): ModelResponseDto
     {
         $conversationId = $this->getOrCreateConversation($user);
-        
-        if ($conversationId && !$requestDto->conversationId) {
+
+        if ($conversationId && ! $requestDto->conversationId) {
             $requestDto = new ResponseRequestDto(
                 model: $requestDto->model,
                 input: $requestDto->input,
@@ -62,7 +65,7 @@ class OpenAIResponseService extends HttpService
 
         $httpRequest = new HttpRequestDto(
             method: 'POST',
-            url: self::OPENAI_BASE_URL . self::RESPONSES_ENDPOINT,
+            url: self::OPENAI_BASE_URL.self::RESPONSES_ENDPOINT,
             data: $requestDto->toArray(),
             bearerToken: $this->apiKey,
             timeout: 120,
@@ -72,19 +75,19 @@ class OpenAIResponseService extends HttpService
             'user_id' => $user->id,
             'conversation_id' => $conversationId,
             'model' => $requestDto->model,
-            'has_tools' => !empty($requestDto->tools),
+            'has_tools' => ! empty($requestDto->tools),
         ]);
 
         $response = $this->request($httpRequest);
 
-        if (!$response->isOk()) {
+        if (! $response->isOk()) {
             Log::error('OpenAI response creation failed', [
                 'user_id' => $user->id,
                 'status_code' => $response->statusCode,
                 'error' => $response->errorMessage,
                 'response_body' => $response->body,
             ]);
-            
+
             throw new Exception("OpenAI API request failed: {$response->errorMessage}");
         }
 
@@ -107,7 +110,7 @@ class OpenAIResponseService extends HttpService
     {
         $httpRequest = new HttpRequestDto(
             method: 'POST',
-            url: self::OPENAI_BASE_URL . self::CONVERSATIONS_ENDPOINT,
+            url: self::OPENAI_BASE_URL.self::CONVERSATIONS_ENDPOINT,
             data: $requestDto->toArray(),
             bearerToken: $this->apiKey,
         );
@@ -116,13 +119,13 @@ class OpenAIResponseService extends HttpService
 
         $response = $this->request($httpRequest);
 
-        if (!$response->isOk()) {
+        if (! $response->isOk()) {
             Log::error('OpenAI conversation creation failed', [
                 'status_code' => $response->statusCode,
                 'error' => $response->errorMessage,
                 'response_body' => $response->body,
             ]);
-            
+
             throw new Exception("Failed to create conversation: {$response->errorMessage}");
         }
 
@@ -140,18 +143,18 @@ class OpenAIResponseService extends HttpService
     {
         if ($this->shouldCreateNewConversation($user)) {
             try {
-                $conversationRequest = new ConversationRequestDto();
+                $conversationRequest = new ConversationRequestDto;
                 $conversation = $this->createConversation($conversationRequest);
-                
+
                 $this->updateUserConversation($user, $conversation->id);
-                
+
                 return $conversation->id;
             } catch (Exception $e) {
                 Log::error('Failed to create new conversation, proceeding without conversation', [
                     'user_id' => $user->id,
                     'error' => $e->getMessage(),
                 ]);
-                
+
                 return null;
             }
         }
@@ -165,18 +168,18 @@ class OpenAIResponseService extends HttpService
             return true;
         }
 
-        if (!$user->conversation_updated_at) {
+        if (! $user->conversation_updated_at) {
             return true;
         }
 
         $hoursSinceUpdate = $user->conversation_updated_at->diffInHours(Carbon::now());
-        
+
         return $hoursSinceUpdate >= self::CONVERSATION_TIMEOUT_HOURS;
     }
 
     private function updateUserConversation(User $user, ?string $conversationId): void
     {
-        if (!$conversationId) {
+        if (! $conversationId) {
             return;
         }
 
@@ -207,16 +210,16 @@ class OpenAIResponseService extends HttpService
                 file_get_contents($requestDto->filePath),
                 basename($requestDto->filePath)
             )->post(
-                self::OPENAI_BASE_URL . self::TRANSCRIPTIONS_ENDPOINT,
+                self::OPENAI_BASE_URL.self::TRANSCRIPTIONS_ENDPOINT,
                 $requestDto->toMultipartArray()
             );
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 Log::error('Audio transcription failed', [
                     'status_code' => $response->status(),
                     'error' => $response->body(),
                 ]);
-                
+
                 throw new Exception("Transcription failed: {$response->body()}");
             }
 
@@ -235,17 +238,17 @@ class OpenAIResponseService extends HttpService
             Log::error('HTTP request failed during transcription', [
                 'error' => $e->getMessage(),
             ]);
-            
+
             throw new Exception("Transcription request failed: {$e->getMessage()}");
         }
     }
 
     public function transcribeAudioFromContent(string $audioContent, string $filename = 'audio.ogg', ?string $language = null): WhisperTranscriptionResponseDto
     {
-        $tempPath = storage_path('app/temp/' . uniqid() . '_' . $filename);
-        
+        $tempPath = storage_path('app/temp/'.uniqid().'_'.$filename);
+
         try {
-            if (!is_dir(dirname($tempPath))) {
+            if (! is_dir(dirname($tempPath))) {
                 mkdir(dirname($tempPath), 0755, true);
             }
 
@@ -256,10 +259,14 @@ class OpenAIResponseService extends HttpService
                 language: $language,
             );
 
-            $result = $this->transcribeAudio($requestDto);
+            return $this->transcribeAudio($requestDto);
+        } catch (Exception $e) {
+            Log::error('Failed to transcribe audio from content', [
+                'error' => $e->getMessage(),
+                'filename' => $filename,
+            ]);
 
-            return $result;
-
+            throw new Exception("Audio transcription failed: {$e->getMessage()}");
         } finally {
             if (file_exists($tempPath)) {
                 unlink($tempPath);

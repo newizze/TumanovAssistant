@@ -24,11 +24,11 @@ final readonly class HttpRequestDto
     private function validateMethod(): void
     {
         $allowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
-        
-        if (!in_array(strtoupper($this->method), $allowedMethods, true)) {
+
+        if (! in_array(strtoupper($this->method), $allowedMethods, true)) {
             throw new InvalidArgumentException(
-                sprintf('Invalid HTTP method: %s. Allowed methods: %s', 
-                    $this->method, 
+                sprintf('Invalid HTTP method: %s. Allowed methods: %s',
+                    $this->method,
                     implode(', ', $allowedMethods)
                 )
             );
@@ -37,7 +37,7 @@ final readonly class HttpRequestDto
 
     private function validateUrl(): void
     {
-        if (!filter_var($this->url, FILTER_VALIDATE_URL)) {
+        if (! filter_var($this->url, FILTER_VALIDATE_URL)) {
             throw new InvalidArgumentException("Invalid URL: {$this->url}");
         }
     }

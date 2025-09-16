@@ -38,6 +38,6 @@ class GoogleSheetsResponseDto
 
     public function hasError(): bool
     {
-        return !$this->isSuccessful;
+        return ! $this->isSuccessful;
     }
 }

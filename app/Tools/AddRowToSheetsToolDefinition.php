@@ -8,6 +8,10 @@ class AddRowToSheetsToolDefinition
 {
     public static function getDefinition(): array
     {
+        // Получаем список исполнителей из конфигурации
+        $executors = config('project.executors', []);
+        $executorCodes = array_column($executors, 'short_code');
+
         return [
             'type' => 'function',
             'function' => [
@@ -18,37 +22,50 @@ class AddRowToSheetsToolDefinition
                     'properties' => [
                         'task_title' => [
                             'type' => 'string',
-                            'description' => 'Название задачи (краткое и понятное)'
+                            'description' => 'Краткое название задачи',
                         ],
                         'task_description' => [
                             'type' => 'string',
-                            'description' => 'Подробное описание задачи'
+                            'description' => 'Подробное описание задачи',
+                        ],
+                        'expected_result' => [
+                            'type' => 'string',
+                            'description' => 'Ожидаемый конечный результат',
                         ],
                         'priority' => [
                             'type' => 'string',
                             'enum' => ['Высокий', 'Средний', 'Низкий'],
-                            'description' => 'Приоритет задачи'
+                            'description' => 'Приоритет задачи',
                         ],
-                        'category' => [
+                        'task_type' => [
                             'type' => 'string',
-                            'description' => 'Категория задачи (IT, Продажи, Маркетинг, Управление и т.д.)'
+                            'description' => 'Тип задачи (например: Разработка, Настройка, Исправление, Анализ и т.д.)',
                         ],
-                        'responsible_person' => [
+                        'executor' => [
                             'type' => 'string',
-                            'description' => 'Ответственный за выполнение задачи'
+                            'enum' => $executorCodes,
+                            'description' => 'Исполнитель задачи (выбери подходящего из списка)',
                         ],
-                        'due_date' => [
+                        'sender_name' => [
                             'type' => 'string',
-                            'description' => 'Срок выполнения в формате YYYY-MM-DD (опционально)'
+                            'description' => 'ФИО отправителя задачи',
                         ],
-                        'tags' => [
+                        'file_link_1' => [
                             'type' => 'string',
-                            'description' => 'Теги через запятую (опционально)'
-                        ]
+                            'description' => 'Ссылка на первый файл от отправителя (опционально)',
+                        ],
+                        'file_link_2' => [
+                            'type' => 'string',
+                            'description' => 'Ссылка на второй файл от отправителя (опционально)',
+                        ],
+                        'file_link_3' => [
+                            'type' => 'string',
+                            'description' => 'Ссылка на третий файл от отправителя (опционально)',
+                        ],
                     ],
-                    'required' => ['task_title', 'task_description', 'priority', 'category']
-                ]
-            ]
+                    'required' => ['task_title', 'task_description', 'priority', 'executor'],
+                ],
+            ],
         ];
     }
 }

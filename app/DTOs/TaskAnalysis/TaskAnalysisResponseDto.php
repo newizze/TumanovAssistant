@@ -35,7 +35,7 @@ class TaskAnalysisResponseDto
 
     public function toSpreadsheetRow(): array
     {
-        if (!$this->shouldCreateTask) {
+        if (! $this->shouldCreateTask) {
             return [];
         }
 

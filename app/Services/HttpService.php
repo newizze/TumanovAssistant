@@ -15,9 +15,11 @@ use Throwable;
 
 class HttpService
 {
-    private int $retryAttempts;
-    private int $retryDelay;
-    private array $defaultHeaders;
+    private readonly int $retryAttempts;
+
+    private readonly int $retryDelay;
+
+    private readonly array $defaultHeaders;
 
     public function __construct()
     {

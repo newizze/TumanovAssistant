@@ -15,6 +15,7 @@
         "laravel/tinker": "^2.10.1"
     },
     "require-dev": {
+        "driftingly/rector-laravel": "*",
         "fakerphp/faker": "^1.23",
         "larastan/larastan": "^3.7",
         "laravel/boost": "^1.1",

@@ -14,15 +14,15 @@ final readonly class ConversationRequestDto
     public function toArray(): array
     {
         $data = [];
-        
+
         if ($this->items !== null) {
             $data['items'] = $this->items;
         }
-        
+
         if ($this->metadata !== null) {
             $data['metadata'] = $this->metadata;
         }
-        
+
         return $data;
     }
 }
