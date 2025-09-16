@@ -48,7 +48,7 @@ class MessageProcessingService
             }
 
             // Получаем промпт из XML файла
-            $systemPrompt = $this->promptService->renderPrompt('task_creation', [
+            $systemPrompt = $this->promptService->loadPrompt('task_creation', [
                 'current_date' => now()->format('Y-m-d'),
                 'user_timezone' => 'Europe/Moscow',
                 'user_message' => $messageText.$fileInfo,
