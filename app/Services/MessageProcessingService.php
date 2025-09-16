@@ -52,7 +52,6 @@ class MessageProcessingService
                 'current_date' => now()->format('Y-m-d'),
                 'user_timezone' => 'Europe/Moscow',
                 'user_message' => $messageText.$fileInfo,
-                'file_links' => $fileLinks,
                 'executors_list' => trim($executorsList),
             ]);
 
