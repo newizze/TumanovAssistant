@@ -19,8 +19,11 @@ class TelegramService extends HttpService
     public function __construct()
     {
         parent::__construct();
-        $this->botToken = config('services.telegram.bot_token');
+        $this->botToken = config('services.telegram.bot_token', '');
+    }
 
+    private function ensureBotTokenConfigured(): void
+    {
         if (empty($this->botToken)) {
             throw new Exception('Telegram bot token not configured');
         }
@@ -28,6 +31,8 @@ class TelegramService extends HttpService
 
     public function sendMessage(TelegramSendMessageDto $messageDto): bool
     {
+        $this->ensureBotTokenConfigured();
+        
         $httpRequest = new HttpRequestDto(
             method: 'POST',
             url: $this->getApiUrl('sendMessage'),
@@ -62,6 +67,8 @@ class TelegramService extends HttpService
 
     public function getFile(string $fileId): ?TelegramFileDto
     {
+        $this->ensureBotTokenConfigured();
+        
         $httpRequest = new HttpRequestDto(
             method: 'GET',
             url: $this->getApiUrl('getFile'),
@@ -101,6 +108,8 @@ class TelegramService extends HttpService
 
     public function downloadFile(TelegramFileDto $fileDto): ?string
     {
+        $this->ensureBotTokenConfigured();
+        
         if (! $fileDto->filePath) {
             Log::error('File path not available for download', [
                 'file_id' => $fileDto->fileId,
@@ -144,6 +153,8 @@ class TelegramService extends HttpService
 
     public function setWebhook(string $url, ?string $secretToken = null): bool
     {
+        $this->ensureBotTokenConfigured();
+        
         $data = ['url' => $url];
 
         if ($secretToken) {
@@ -195,6 +206,8 @@ class TelegramService extends HttpService
 
     public function getWebhookInfo(): array
     {
+        $this->ensureBotTokenConfigured();
+        
         $httpRequest = new HttpRequestDto(
             method: 'GET',
             url: $this->getApiUrl('getWebhookInfo'),

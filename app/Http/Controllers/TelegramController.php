@@ -106,10 +106,24 @@ class TelegramController extends Controller
             return;
         }
 
+        // Проверяем активность пользователя
+        $user = $this->getOrCreateUser($message->from);
+        
+        if (! $user->isActive()) {
+            Log::info('Inactive user tried to send message', [
+                'message_id' => $message->messageId,
+                'user_id' => $message->from->id,
+                'telegram_id' => $user->telegram_id,
+            ]);
+
+            $this->sendReply($message->chat->id, 'Ваш аккаунт не активирован. Обратитесь к администратору для активации.');
+            return;
+        }
+
         if ($message->hasText() || $message->hasFiles()) {
-            $this->processTextMessage($message);
+            $this->processTextMessage($message, $user);
         } elseif ($message->hasVoice()) {
-            $this->processVoiceMessage($message);
+            $this->processVoiceMessage($message, $user);
         } else {
             Log::info('Message type not supported', [
                 'message_id' => $message->messageId,
@@ -120,7 +134,7 @@ class TelegramController extends Controller
         }
     }
 
-    private function processTextMessage($message): void
+    private function processTextMessage($message, User $user): void
     {
         $messageText = $message->getMessageText();
 
@@ -163,8 +177,6 @@ class TelegramController extends Controller
 
         // Если есть текст или файлы - обрабатываем через AI
         if ($messageText || ! empty($fileLinks)) {
-            $user = $this->getOrCreateUser($message->from);
-
             // Передаем текст и ссылки на файлы в MessageProcessingService
             $response = $this->messageProcessingService->processMessage(
                 $messageText ?? '',
@@ -178,7 +190,7 @@ class TelegramController extends Controller
         }
     }
 
-    private function processVoiceMessage($message): void
+    private function processVoiceMessage($message, User $user): void
     {
         Log::info('Processing voice message', [
             'message_id' => $message->messageId,
@@ -219,7 +231,6 @@ class TelegramController extends Controller
             }
 
             // Обрабатываем распознанный текст через AI
-            $user = $this->getOrCreateUser($message->from);
             $response = $this->messageProcessingService->processMessage($transcription->text, $user);
             $this->sendReply($message->chat->id, $response);
 
@@ -304,6 +315,7 @@ class TelegramController extends Controller
                 'name' => $telegramUser->firstName.($telegramUser->lastName ? ' '.$telegramUser->lastName : ''),
                 'username' => $telegramUser->username,
                 'telegram_id' => $telegramUser->id,
+                'is_active' => false, // По умолчанию пользователь неактивен
             ]
         );
     }
