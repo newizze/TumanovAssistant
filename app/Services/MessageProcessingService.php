@@ -92,21 +92,42 @@ class MessageProcessingService
         $content = $response->getContent();
         $toolCalls = $response->getFunctionCalls();
 
+        Log::info('Processing AI response', [
+            'has_content' => ! empty($content),
+            'tool_calls_count' => count($toolCalls),
+            'tool_calls_structure' => $toolCalls,
+        ]);
+
         // Если есть вызовы инструментов, обрабатываем их
         if (! empty($toolCalls)) {
             foreach ($toolCalls as $toolCall) {
+                Log::info('Processing tool call', [
+                    'tool_call_structure' => $toolCall,
+                ]);
+
                 // Проверяем тип вызова функции и имя функции
                 if ($toolCall['type'] === 'function_call' &&
-                    isset($toolCall['function']['name']) &&
+                    isset($toolCall['function']) &&
                     $toolCall['function']['name'] === 'add_row_to_sheets') {
 
-                    $arguments = json_decode((string) $toolCall['function']['arguments'], true);
+                    $arguments = $toolCall['function']['arguments'];
+                    
+                    // Если arguments это строка, декодируем JSON
+                    if (is_string($arguments)) {
+                        $arguments = json_decode($arguments, true);
+                    }
+
+                    Log::info('Executing tool handler', [
+                        'function_name' => $toolCall['function']['name'],
+                        'arguments' => $arguments,
+                    ]);
+
                     $result = $this->toolHandler->handle($arguments);
 
                     Log::info('Tool call executed', [
                         'tool_name' => $toolCall['function']['name'],
                         'success' => $result['success'],
-                        'arguments' => $arguments,
+                        'result' => $result,
                     ]);
 
                     // Добавляем информацию о результате выполнения инструмента

@@ -92,6 +92,14 @@ class OpenAIResponseService extends HttpService
         }
 
         $responseData = $response->getJsonData();
+        
+        Log::info('OpenAI API response received', [
+            'response_id' => $responseData['id'] ?? 'unknown',
+            'status' => $responseData['status'] ?? 'unknown',
+            'output_count' => count($responseData['output'] ?? []),
+            'full_response' => $responseData, // Логируем полный ответ для отладки
+        ]);
+        
         $modelResponse = ModelResponseDto::fromArray($responseData);
 
         $this->updateUserConversation($user, $conversationId ?? $responseData['conversation_id'] ?? null);
