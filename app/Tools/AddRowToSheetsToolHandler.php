@@ -33,7 +33,7 @@ class AddRowToSheetsToolHandler
 
             // Получаем настройки из конфигурации
             $spreadsheetId = config('project.google_sheets.default_spreadsheet_id');
-            $range = config('project.google_sheets.default_range');
+            $range = 'A:Z'; // Временно хардкод, пока конфиг не обновится в проде
 
             if (empty($spreadsheetId)) {
                 return [
