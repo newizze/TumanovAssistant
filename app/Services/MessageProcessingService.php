@@ -61,9 +61,6 @@ class MessageProcessingService
                 input: $messageText,
                 instructions: $systemPrompt,
                 tools: [AddRowToSheetsToolDefinition::getDefinition()],
-                toolChoice: 'auto',
-                maxOutputTokens: 4000,
-                temperature: 0.3,
             );
 
             $response = $this->openAIService->createResponse($requestDto, $user);
