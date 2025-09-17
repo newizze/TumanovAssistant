@@ -53,6 +53,7 @@ class MessageProcessingService
                 'user_timezone' => 'Europe/Moscow',
                 'user_message' => $messageText.$fileInfo,
                 'executors_list' => trim($executorsList),
+                'telegram_username' => $user->username ?: 'unknown',
             ]);
 
             // Подготавливаем запрос к AI с инструментами
