@@ -25,7 +25,7 @@ class GoogleSheetsService extends HttpService
                 '%s/%s/values/%s:append?valueInputOption=%s',
                 self::SHEETS_API_BASE_URL,
                 $dto->spreadsheetId,
-                $dto->range,
+                urlencode($dto->range),
                 $dto->valueInputOption
             );
 
@@ -42,8 +42,10 @@ class GoogleSheetsService extends HttpService
                 Log::error('Google Sheets API request failed', [
                     'error' => $response->errorMessage,
                     'status_code' => $response->statusCode,
+                    'response_body' => $response->body,
                     'spreadsheet_id' => $dto->spreadsheetId,
                     'range' => $dto->range,
+                    'url' => $url,
                 ]);
 
                 return GoogleSheetsResponseDto::error(
