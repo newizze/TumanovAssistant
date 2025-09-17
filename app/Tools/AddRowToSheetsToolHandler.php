@@ -21,7 +21,7 @@ class AddRowToSheetsToolHandler
             ]);
 
             // Валидация обязательных параметров
-            $requiredFields = ['task_title', 'task_description', 'priority', 'category'];
+            $requiredFields = ['task_title', 'task_description', 'priority', 'executor'];
             foreach ($requiredFields as $field) {
                 if (empty($arguments[$field])) {
                     return [
