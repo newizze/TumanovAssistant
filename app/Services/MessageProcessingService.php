@@ -176,12 +176,12 @@ class MessageProcessingService
             ]);
 
             // В новом API /responses каждый запрос должен быть независимым
-            // Убираем previous_response_id для избежания ошибок с tool outputs
+            // Убираем previous_response_id и conversation_id для избежания ошибок с tool outputs
             $cleanRequest = new ResponseRequestDto(
                 model: $currentRequest->model,
                 input: $currentRequest->input,
                 instructions: $currentRequest->instructions,
-                conversationId: $currentRequest->conversationId,
+                conversationId: null, // Временно убираем conversation для tool calls
                 previousResponseId: null, // Убираем связь с предыдущим response
                 maxOutputTokens: $currentRequest->maxOutputTokens,
                 temperature: $currentRequest->temperature,
@@ -243,6 +243,31 @@ class MessageProcessingService
                 'response_id' => $response->id,
                 'tool_outputs_count' => count($toolOutputs),
             ]);
+
+            // Проверяем, были ли успешно выполнены tool calls для добавления в Google Sheets
+            $hasSuccessfulSheetsTool = false;
+            foreach ($functionCalls as $functionCall) {
+                if ($functionCall['name'] === 'add_row_to_sheets') {
+                    // Находим соответствующий tool output
+                    foreach ($toolOutputs as $toolOutput) {
+                        if ($toolOutput['tool_call_id'] === ($functionCall['id'] ?? $functionCall['call_id'] ?? '')) {
+                            $output = json_decode($toolOutput['output'], true);
+                            if ($output['success']) {
+                                $hasSuccessfulSheetsTool = true;
+                                break 2;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Если успешно добавили запись в Google Sheets, сбрасываем conversation_id для избежания конфликтов
+            if ($hasSuccessfulSheetsTool) {
+                $user->update(['conversation_id' => null]);
+                Log::info('Conversation ID reset after successful Google Sheets operation', [
+                    'user_id' => $user->id,
+                ]);
+            }
 
             return ($response->getContent() ?: 'Задача обработана.') . $toolSummary;
         }
