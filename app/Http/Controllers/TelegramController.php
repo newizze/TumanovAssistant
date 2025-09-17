@@ -265,8 +265,8 @@ class TelegramController extends Controller
 
     private function sendReply(int $chatId, string $text): void
     {
-        // Only truncate text for Telegram, skip markdown escaping
-        $safeText = $this->markdownService->truncateForTelegram($text);
+        // Prepare text for Telegram with proper Markdown formatting
+        $safeText = $this->markdownService->prepareForTelegram($text);
         
         $messageDto = new TelegramSendMessageDto(
             chatId: $chatId,
