@@ -69,7 +69,6 @@ class MessageProcessingService
             Log::info('Message processed successfully', [
                 'user_id' => $user->id,
                 'response_length' => strlen($finalResponse),
-                'tool_calls_count' => count($response->getFunctionCalls()),
             ]);
 
             return $finalResponse;
