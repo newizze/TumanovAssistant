@@ -16,8 +16,9 @@ class TelegramService extends HttpService
 
     private readonly string $botToken;
 
-    public function __construct()
-    {
+    public function __construct(
+        private readonly MarkdownService $markdownService
+    ) {
         parent::__construct();
         $this->botToken = config('services.telegram.bot_token', '');
     }
@@ -63,6 +64,19 @@ class TelegramService extends HttpService
         ]);
 
         return true;
+    }
+
+    public function sendMarkdownMessage(int|string $chatId, string $text): bool
+    {
+        $formattedText = $this->markdownService->prepareForTelegram($text);
+        
+        $messageDto = new TelegramSendMessageDto(
+            chatId: $chatId,
+            text: $formattedText,
+            parseMode: 'MarkdownV2'
+        );
+
+        return $this->sendMessage($messageDto);
     }
 
     public function getFile(string $fileId): ?TelegramFileDto

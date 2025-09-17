@@ -137,10 +137,29 @@ final class MarkdownService
 
     private function escapeDanglingDelimiters(string $t): string
     {
-        // одиночные * или _ не образующие пар — экранируем
-        $t = preg_replace('/(?<!\*)\*(?![^*]*\*)/', '\\\\*', $t);
-        $t = preg_replace('/(?<!_)_(?![^_]*_)/', '\\\\_', $t);
+        // Подсчитываем парные символы и экранируем непарные
+        $t = $this->fixUnpairedDelimiters($t, '*');
+        $t = $this->fixUnpairedDelimiters($t, '_');
+        $t = $this->fixUnpairedDelimiters($t, '~');
         return $t;
+    }
+
+    private function fixUnpairedDelimiters(string $text, string $delimiter): string
+    {
+        // Найдем все вхождения delimiter, исключая уже экранированные
+        $pattern = '/(?<!\\\\)\\' . preg_quote($delimiter, '/') . '/';
+        preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE);
+        
+        $count = count($matches[0]);
+        
+        // Если нечетное количество - экранируем последний
+        if ($count % 2 !== 0) {
+            $lastMatch = end($matches[0]);
+            $offset = $lastMatch[1];
+            $text = substr_replace($text, '\\' . $delimiter, $offset, 1);
+        }
+        
+        return $text;
     }
 
     private function truncateSafe(string $t, int $max): string
