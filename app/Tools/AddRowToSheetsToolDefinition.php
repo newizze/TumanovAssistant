@@ -14,6 +14,7 @@ class AddRowToSheetsToolDefinition
 
         return [
             'type' => 'function',
+            'name' => 'add_row_to_sheets',
             'function' => [
                 'name' => 'add_row_to_sheets',
                 'description' => 'Добавляет новую строку в указанную Google Sheets таблицу с данными задачи',
