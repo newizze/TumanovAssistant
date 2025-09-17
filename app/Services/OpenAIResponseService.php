@@ -76,6 +76,7 @@ class OpenAIResponseService extends HttpService
             'conversation_id' => $conversationId,
             'model' => $requestDto->model,
             'has_tools' => ! empty($requestDto->tools),
+            'request_data' => $requestDto->toArray(), // Логируем весь запрос
         ]);
 
         $response = $this->request($httpRequest);

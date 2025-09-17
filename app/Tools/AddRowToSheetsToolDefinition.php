@@ -15,11 +15,10 @@ class AddRowToSheetsToolDefinition
         return [
             'type' => 'function',
             'name' => 'add_row_to_sheets',
-            'function' => [
-                'name' => 'add_row_to_sheets',
-                'description' => 'Добавляет новую строку в указанную Google Sheets таблицу с данными задачи',
-                'parameters' => [
+            'description' => 'Добавляет новую строку в указанную Google Sheets таблицу с данными задачи',
+            'parameters' => [
                     'type' => 'object',
+                    'additionalProperties' => false,
                     'properties' => [
                         'task_title' => [
                             'type' => 'string',
@@ -64,9 +63,8 @@ class AddRowToSheetsToolDefinition
                             'description' => 'Ссылка на третий файл от отправителя (опционально)',
                         ],
                     ],
-                    'required' => ['task_title', 'task_description', 'priority', 'executor'],
+                    'required' => ['task_title', 'task_description', 'priority', 'executor', 'sender_name'],
                 ],
-            ],
         ];
     }
 }
