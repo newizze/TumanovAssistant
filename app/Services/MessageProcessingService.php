@@ -83,7 +83,7 @@ class MessageProcessingService
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return 'Произошла ошибка при обработке сообщения. Попробуйте еще раз.';
+            return "Произошла ошибка при обработке сообщения {$e->getMessage()}. Попробуйте еще раз.";
         }
     }
 
