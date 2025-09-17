@@ -24,11 +24,15 @@ class PromptService
 
         try {
             $xmlContent = File::get($filePath);
-            $xml = new SimpleXMLElement($xmlContent);
+            
+            // Сначала подставляем переменные в сырой XML
+            $xmlContentWithVariables = $this->substituteVariables($xmlContent, $variables);
+            
+            // Парсим XML для валидации
+            $xml = new SimpleXMLElement($xmlContentWithVariables);
 
-            $prompt = $this->buildPromptFromXml($xml);
-
-            return $this->substituteVariables($prompt, $variables);
+            // Возвращаем XML строку с подставленными переменными
+            return $xmlContentWithVariables;
         } catch (Exception $e) {
             Log::error('Failed to load prompt', [
                 'file' => $filePath,
@@ -38,20 +42,6 @@ class PromptService
         }
     }
 
-    private function buildPromptFromXml(SimpleXMLElement $xml): string
-    {
-        $parts = [];
-
-        if (isset($xml->system)) {
-            $parts[] = 'System: '.trim((string) $xml->system);
-        }
-
-        if (isset($xml->instruction)) {
-            $parts[] = 'Instruction: '.trim((string) $xml->instruction);
-        }
-
-        return implode("\n\n", $parts);
-    }
 
     private function substituteVariables(string $prompt, array $variables): string
     {
