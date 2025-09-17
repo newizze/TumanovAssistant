@@ -163,6 +163,7 @@ class MessageProcessingService
     {
         $currentRequest = $requestDto;
         $iteration = 0;
+        $lastResponse = null;
         
         while ($iteration < $maxIterations) {
             $iteration++;
@@ -171,22 +172,33 @@ class MessageProcessingService
                 'iteration' => $iteration,
                 'max_iterations' => $maxIterations,
                 'user_id' => $user->id,
+                'has_tool_outputs' => !empty($currentRequest->toolOutputs),
+                'request_data' => $currentRequest->toArray(),
             ]);
             
             $response = $this->openAIService->createResponse($currentRequest, $user);
+            $lastResponse = $response;
             
             if (!$response->hasFunctionCalls()) {
                 // Нет вызовов функций - возвращаем финальный ответ
                 Log::info('No function calls in response, returning final answer', [
                     'iteration' => $iteration,
                     'user_id' => $user->id,
+                    'response_content' => $response->getContent(),
                 ]);
                 
                 return $response->getContent() ?: 'Задача обработана.';
             }
             
             // Есть вызовы функций - обрабатываем их
-            $toolOutputs = $this->executeFunctionCalls($response->getFunctionCalls());
+            $functionCalls = $response->getFunctionCalls();
+            Log::info('Function calls detected', [
+                'iteration' => $iteration,
+                'function_calls_count' => count($functionCalls),
+                'function_calls' => $functionCalls,
+            ]);
+            
+            $toolOutputs = $this->executeFunctionCalls($functionCalls);
             
             if (empty($toolOutputs)) {
                 // Функции не выполнились - возвращаем то что есть
@@ -197,6 +209,11 @@ class MessageProcessingService
                 
                 return $response->getContent() ?: 'Произошла ошибка при выполнении функций.';
             }
+            
+            Log::info('Tool outputs prepared for next iteration', [
+                'iteration' => $iteration,
+                'tool_outputs' => $toolOutputs,
+            ]);
             
             // Подготавливаем следующий запрос с результатами функций
             $currentRequest = new ResponseRequestDto(
@@ -212,9 +229,10 @@ class MessageProcessingService
         Log::warning('Reached maximum iterations without final response', [
             'max_iterations' => $maxIterations,
             'user_id' => $user->id,
+            'last_response_content' => $lastResponse?->getContent(),
         ]);
         
-        return 'Превышено максимальное количество итераций. Задача может быть не полностью обработана.';
+        return $lastResponse?->getContent() ?: 'Превышено максимальное количество итераций. Задача может быть не полностью обработана.';
     }
     
     private function executeFunctionCalls(array $functionCalls): array
@@ -222,9 +240,13 @@ class MessageProcessingService
         $toolOutputs = [];
         
         foreach ($functionCalls as $toolCall) {
+            $callId = $toolCall['id'] ?? $toolCall['call_id'] ?? uniqid();
+            $functionName = $toolCall['function']['name'] ?? 'unknown';
+            
             Log::info('Executing function call', [
-                'tool_call_id' => $toolCall['id'] ?? 'unknown',
-                'function_name' => $toolCall['function']['name'] ?? 'unknown',
+                'tool_call_structure' => $toolCall,
+                'extracted_call_id' => $callId,
+                'function_name' => $functionName,
             ]);
             
             if ($toolCall['type'] === 'function_call' &&
@@ -238,23 +260,44 @@ class MessageProcessingService
                     $arguments = json_decode($arguments, true);
                 }
                 
+                Log::info('Executing tool handler with arguments', [
+                    'call_id' => $callId,
+                    'arguments' => $arguments,
+                ]);
+                
                 $result = $this->toolHandler->handle($arguments);
                 
                 Log::info('Function call executed', [
-                    'tool_call_id' => $toolCall['id'] ?? 'unknown',
+                    'call_id' => $callId,
                     'success' => $result['success'],
                     'result' => $result,
                 ]);
                 
-                $toolOutputs[] = [
-                    'call_id' => $toolCall['id'] ?? uniqid(),
+                // Формируем правильный tool output
+                $toolOutput = [
+                    'call_id' => $callId,
                     'type' => 'function_result',
                     'function_result' => [
                         'output' => json_encode($result),
                     ],
                 ];
+                
+                Log::info('Tool output prepared', [
+                    'tool_output' => $toolOutput,
+                ]);
+                
+                $toolOutputs[] = $toolOutput;
+            } else {
+                Log::warning('Unsupported function call', [
+                    'tool_call' => $toolCall,
+                ]);
             }
         }
+        
+        Log::info('All function calls executed', [
+            'total_outputs' => count($toolOutputs),
+            'tool_outputs' => $toolOutputs,
+        ]);
         
         return $toolOutputs;
     }
