@@ -338,7 +338,7 @@ class TelegramController extends Controller
 
             $this->sendReply(
                 $message->chat->id,
-                '🔄 Готов!'
+                '🔄 Готов'
             );
 
         } catch (Exception $e) {

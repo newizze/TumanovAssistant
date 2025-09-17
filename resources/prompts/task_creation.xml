@@ -76,7 +76,7 @@
         - priority
         - task_type
         - executor
-        - sender_name
+        - sender_name - так же как и в executor указываем короткое обозначение
         - file_link_1, file_link_2, file_link_3 (если есть)
 
         Сообщение: {{user_message}}
