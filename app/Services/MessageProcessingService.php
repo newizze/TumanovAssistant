@@ -175,7 +175,24 @@ class MessageProcessingService
                 'user_id' => $user->id,
             ]);
 
-            $response = $this->openAIService->createResponse($currentRequest, $user);
+            // В новом API /responses каждый запрос должен быть независимым
+            // Убираем previous_response_id для избежания ошибок с tool outputs
+            $cleanRequest = new ResponseRequestDto(
+                model: $currentRequest->model,
+                input: $currentRequest->input,
+                instructions: $currentRequest->instructions,
+                conversationId: $currentRequest->conversationId,
+                previousResponseId: null, // Убираем связь с предыдущим response
+                maxOutputTokens: $currentRequest->maxOutputTokens,
+                temperature: $currentRequest->temperature,
+                tools: $currentRequest->tools,
+                toolChoice: $currentRequest->toolChoice,
+                metadata: $currentRequest->metadata,
+                store: $currentRequest->store,
+                stream: $currentRequest->stream,
+            );
+
+            $response = $this->openAIService->createResponse($cleanRequest, $user);
             $lastResponse = $response;
 
             if (!$response->hasFunctionCalls()) {

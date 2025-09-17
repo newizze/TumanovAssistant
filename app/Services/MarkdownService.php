@@ -146,8 +146,8 @@ final class MarkdownService
 
     private function fixUnpairedDelimiters(string $text, string $delimiter): string
     {
-        // Найдем все вхождения delimiter, исключая уже экранированные
-        $pattern = '/(?<!\\\\)\\' . preg_quote($delimiter, '/') . '/';
+        // Найдем все неэкранированные вхождения delimiter
+        $pattern = '/(?<!\\\\)' . preg_quote($delimiter, '/') . '/';
         preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE);
         
         $count = count($matches[0]);
