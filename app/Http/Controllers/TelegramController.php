@@ -55,6 +55,7 @@ class TelegramController extends Controller
                 'update_id' => $data['update_id'] ?? null,
                 'has_message' => isset($data['message']),
                 'has_callback_query' => isset($data['callback_query']),
+                'full_data' => $data, // Логируем все данные для отладки
             ]);
 
             $webhookDto = TelegramWebhookDto::fromArray($data);

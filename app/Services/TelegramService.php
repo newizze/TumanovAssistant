@@ -227,7 +227,7 @@ class TelegramService extends HttpService
         return $response->body;
     }
 
-    public function setWebhook(string $url, ?string $secretToken = null): bool
+    public function setWebhook(string $url, ?string $secretToken = null, ?array $allowedUpdates = null): bool
     {
         $this->ensureBotTokenConfigured();
         
@@ -235,6 +235,10 @@ class TelegramService extends HttpService
 
         if ($secretToken) {
             $data['secret_token'] = $secretToken;
+        }
+
+        if ($allowedUpdates) {
+            $data['allowed_updates'] = json_encode($allowedUpdates);
         }
 
         $httpRequest = new HttpRequestDto(
