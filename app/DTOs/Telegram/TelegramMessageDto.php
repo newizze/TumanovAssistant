@@ -83,7 +83,7 @@ final readonly class TelegramMessageDto
             return null;
         }
 
-        $lastPhoto = end($this->photo);
+        $lastPhoto = $this->photo[array_key_last($this->photo)];
 
         return $lastPhoto->fileId;
     }
