@@ -161,6 +161,17 @@ class MessageProcessingService
 
     private function processWithToolCalls(ResponseRequestDto $requestDto, User $user, int $maxIterations = 5): string
     {
+        $conversationMessages = [];
+        $isFirstIteration = true;
+        
+        // Добавляем первоначальное сообщение пользователя
+        if (is_string($requestDto->input)) {
+            $conversationMessages[] = [
+                'role' => 'user',
+                'content' => $requestDto->input
+            ];
+        }
+        
         $currentRequest = $requestDto;
         $iteration = 0;
         $lastResponse = null;
@@ -172,8 +183,8 @@ class MessageProcessingService
                 'iteration' => $iteration,
                 'max_iterations' => $maxIterations,
                 'user_id' => $user->id,
-                'has_tool_outputs' => !empty($currentRequest->toolOutputs),
-                'request_data' => $currentRequest->toArray(),
+                'conversation_messages_count' => count($conversationMessages),
+                'is_first_iteration' => $isFirstIteration,
             ]);
             
             $response = $this->openAIService->createResponse($currentRequest, $user);
@@ -198,6 +209,11 @@ class MessageProcessingService
                 'function_calls' => $functionCalls,
             ]);
             
+            // Добавляем function calls в conversation
+            foreach ($functionCalls as $functionCall) {
+                $conversationMessages[] = $functionCall;
+            }
+            
             $toolOutputs = $this->executeFunctionCalls($functionCalls);
             
             if (empty($toolOutputs)) {
@@ -210,20 +226,31 @@ class MessageProcessingService
                 return $response->getContent() ?: 'Произошла ошибка при выполнении функций.';
             }
             
-            Log::info('Tool outputs prepared for next iteration', [
+            // Добавляем результаты функций в conversation
+            foreach ($toolOutputs as $toolOutput) {
+                $conversationMessages[] = [
+                    'type' => 'function_call_output',
+                    'call_id' => $toolOutput['tool_call_id'],
+                    'output' => $toolOutput['output']
+                ];
+            }
+            
+            Log::info('Tool outputs added to conversation', [
                 'iteration' => $iteration,
-                'tool_outputs' => $toolOutputs,
+                'tool_outputs_count' => count($toolOutputs),
+                'conversation_messages_count' => count($conversationMessages),
             ]);
             
-            // Подготавливаем следующий запрос с результатами функций
+            // Подготавливаем следующий запрос с обновленной conversation
             $currentRequest = new ResponseRequestDto(
                 model: $currentRequest->model,
-                input: '', // Пустой input для продолжения conversation
+                input: $conversationMessages, // Передаем всю conversation как input
+                instructions: $isFirstIteration ? null : null, // После первого запроса instructions не нужны
                 conversationId: $user->conversation_id,
-                previousResponseId: $response->id,
-                toolOutputs: $toolOutputs,
                 tools: $currentRequest->tools, // Оставляем tools доступными
             );
+            
+            $isFirstIteration = false;
         }
         
         Log::warning('Reached maximum iterations without final response', [
@@ -273,13 +300,10 @@ class MessageProcessingService
                     'result' => $result,
                 ]);
                 
-                // Формируем правильный tool output
+                // Формируем правильный tool output согласно OpenAI API
                 $toolOutput = [
-                    'call_id' => $callId,
-                    'type' => 'function_result',
-                    'function_result' => [
-                        'output' => json_encode($result),
-                    ],
+                    'tool_call_id' => $callId,
+                    'output' => json_encode($result),
                 ];
                 
                 Log::info('Tool output prepared', [
