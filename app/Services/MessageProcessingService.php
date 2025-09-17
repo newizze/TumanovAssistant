@@ -63,10 +63,8 @@ class MessageProcessingService
                 tools: [AddRowToSheetsToolDefinition::getDefinition()],
             );
 
-            $response = $this->openAIService->createResponse($requestDto, $user);
-
-            // Обрабатываем ответ и выполняем вызовы инструментов
-            $finalResponse = $this->handleAIResponse($response);
+            // Выполняем цикличные запросы до получения финального ответа
+            $finalResponse = $this->processWithToolCalls($requestDto, $user);
 
             Log::info('Message processed successfully', [
                 'user_id' => $user->id,
@@ -87,7 +85,7 @@ class MessageProcessingService
         }
     }
 
-    private function handleAIResponse($response): string
+    private function handleAIResponse($response, User $user): string
     {
         $content = $response->getContent();
         $toolCalls = $response->getFunctionCalls();
@@ -98,8 +96,10 @@ class MessageProcessingService
             'tool_calls_structure' => $toolCalls,
         ]);
 
-        // Если есть вызовы инструментов, обрабатываем их
+        // Если есть вызовы инструментов, обрабатываем их и делаем новый запрос
         if (! empty($toolCalls)) {
+            $toolResults = [];
+            
             foreach ($toolCalls as $toolCall) {
                 Log::info('Processing tool call', [
                     'tool_call_structure' => $toolCall,
@@ -130,16 +130,133 @@ class MessageProcessingService
                         'result' => $result,
                     ]);
 
-                    // Добавляем информацию о результате выполнения инструмента
-                    if ($result['success']) {
-                        $content .= "\n\n✅ ".$result['message'];
+                    // Подготавливаем результат для отправки в OpenAI
+                    $toolResults[] = [
+                        'call_id' => $toolCall['id'] ?? uniqid(),
+                        'type' => 'function_result',
+                        'function_result' => [
+                            'output' => json_encode($result),
+                        ],
+                    ];
+                }
+            }
+
+            // Если есть результаты функций, формируем ответ
+            if (! empty($toolResults)) {
+                $toolSummary = '';
+                foreach ($toolResults as $toolResult) {
+                    $output = json_decode($toolResult['function_result']['output'], true);
+                    if ($output['success']) {
+                        $toolSummary .= "\n\n✅ ".$output['message'];
                     } else {
-                        $content .= "\n\n❌ Ошибка при добавлении в таблицу: ".$result['error'];
+                        $toolSummary .= "\n\n❌ Ошибка: ".$output['error'];
                     }
                 }
+                
+                return ($content ?: 'Задача обработана.') . $toolSummary;
             }
         }
 
-        return $content;
+        return $content ?: 'Ответ получен, но содержимое отсутствует.';
+    }
+
+    private function processWithToolCalls(ResponseRequestDto $requestDto, User $user, int $maxIterations = 5): string
+    {
+        $currentRequest = $requestDto;
+        $iteration = 0;
+        
+        while ($iteration < $maxIterations) {
+            $iteration++;
+            
+            Log::info('Processing AI request iteration', [
+                'iteration' => $iteration,
+                'max_iterations' => $maxIterations,
+                'user_id' => $user->id,
+            ]);
+            
+            $response = $this->openAIService->createResponse($currentRequest, $user);
+            
+            if (!$response->hasFunctionCalls()) {
+                // Нет вызовов функций - возвращаем финальный ответ
+                Log::info('No function calls in response, returning final answer', [
+                    'iteration' => $iteration,
+                    'user_id' => $user->id,
+                ]);
+                
+                return $response->getContent() ?: 'Задача обработана.';
+            }
+            
+            // Есть вызовы функций - обрабатываем их
+            $toolOutputs = $this->executeFunctionCalls($response->getFunctionCalls());
+            
+            if (empty($toolOutputs)) {
+                // Функции не выполнились - возвращаем то что есть
+                Log::warning('Function calls failed to execute', [
+                    'iteration' => $iteration,
+                    'user_id' => $user->id,
+                ]);
+                
+                return $response->getContent() ?: 'Произошла ошибка при выполнении функций.';
+            }
+            
+            // Подготавливаем следующий запрос с результатами функций
+            $currentRequest = new ResponseRequestDto(
+                model: $currentRequest->model,
+                input: '', // Пустой input для продолжения conversation
+                conversationId: $user->conversation_id,
+                previousResponseId: $response->id,
+                toolOutputs: $toolOutputs,
+                tools: $currentRequest->tools, // Оставляем tools доступными
+            );
+        }
+        
+        Log::warning('Reached maximum iterations without final response', [
+            'max_iterations' => $maxIterations,
+            'user_id' => $user->id,
+        ]);
+        
+        return 'Превышено максимальное количество итераций. Задача может быть не полностью обработана.';
+    }
+    
+    private function executeFunctionCalls(array $functionCalls): array
+    {
+        $toolOutputs = [];
+        
+        foreach ($functionCalls as $toolCall) {
+            Log::info('Executing function call', [
+                'tool_call_id' => $toolCall['id'] ?? 'unknown',
+                'function_name' => $toolCall['function']['name'] ?? 'unknown',
+            ]);
+            
+            if ($toolCall['type'] === 'function_call' &&
+                isset($toolCall['function']) &&
+                $toolCall['function']['name'] === 'add_row_to_sheets') {
+                
+                $arguments = $toolCall['function']['arguments'];
+                
+                // Если arguments это строка, декодируем JSON
+                if (is_string($arguments)) {
+                    $arguments = json_decode($arguments, true);
+                }
+                
+                $result = $this->toolHandler->handle($arguments);
+                
+                Log::info('Function call executed', [
+                    'tool_call_id' => $toolCall['id'] ?? 'unknown',
+                    'success' => $result['success'],
+                    'result' => $result,
+                ]);
+                
+                $toolOutputs[] = [
+                    'call_id' => $toolCall['id'] ?? uniqid(),
+                    'type' => 'function_result',
+                    'function_result' => [
+                        'output' => json_encode($result),
+                    ],
+                ];
+            }
+        }
+        
+        return $toolOutputs;
     }
 }

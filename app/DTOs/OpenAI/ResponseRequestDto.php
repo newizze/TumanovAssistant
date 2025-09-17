@@ -16,6 +16,7 @@ final readonly class ResponseRequestDto
         public ?float $temperature = null,
         public ?array $tools = null,
         public ?string $toolChoice = null,
+        public ?array $toolOutputs = null,
         public ?array $metadata = null,
         public ?bool $store = null,
         public ?bool $stream = null,
@@ -59,6 +60,10 @@ final readonly class ResponseRequestDto
 
         if ($this->toolChoice !== null) {
             $data['tool_choice'] = $this->toolChoice;
+        }
+
+        if ($this->toolOutputs !== null) {
+            $data['tool_outputs'] = $this->toolOutputs;
         }
 
         if ($this->metadata !== null) {
