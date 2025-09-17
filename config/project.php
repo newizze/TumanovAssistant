@@ -64,7 +64,7 @@ return [
         [
             'name' => 'Николай Туманов',
             'short_code' => 'ГД НТ',
-            'tg_username' => null,
+            'tg_username' => '@NickTumanov',
         ],
         [
             'name' => 'Матюшин Денис',
@@ -95,21 +95,6 @@ return [
             'name' => 'Владислав Умнов IT',
             'short_code' => 'ИТ ВУ',
             'tg_username' => '@VladislavUmnov',
-        ],
-        [
-            'name' => 'Виктор Жиленко IT',
-            'short_code' => 'ИТ ВЖ',
-            'tg_username' => null,
-        ],
-        [
-            'name' => 'Анастасия IT',
-            'short_code' => 'ИТ Анаст',
-            'tg_username' => null,
-        ],
-        [
-            'name' => 'Александр IT',
-            'short_code' => 'ИТ Алекс',
-            'tg_username' => null,
         ],
     ],
 ];

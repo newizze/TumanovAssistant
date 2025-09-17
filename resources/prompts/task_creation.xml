@@ -7,6 +7,7 @@
 
         Current date: {{current_date}}
         User timezone: {{user_timezone}}
+        Telegram username: {{telegram_username}}
     </system>
 
     <instruction>
@@ -63,6 +64,7 @@
         **Тип задачи:** [выбери из task_types]
         **Приоритет:** [выбери из priorities]
         **Ответственный:** [из employees]
+        **Постановщик:** [определи по telegram_username из employees]
 
         **Шаблон уведомления** (если нужно):
         [Текст с переменными в {фигурных скобках}]
@@ -114,6 +116,9 @@
 
     <employees>
         {{executors_list}}
+
+        **Определение постановщика по Telegram username:**
+        Текущий telegram_username: {{telegram_username}}
     </employees>
 
     <formatting_rules>
