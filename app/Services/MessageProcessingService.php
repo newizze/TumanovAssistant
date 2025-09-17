@@ -267,7 +267,7 @@ class MessageProcessingService
 
         foreach ($functionCalls as $toolCall) {
             $callId = $toolCall['id'] ?? $toolCall['call_id'] ?? uniqid();
-            $functionName = $toolCall['function']['name'] ?? 'unknown';
+            $functionName = $toolCall['name'] ?? 'unknown';
 
             Log::info('Executing function call', [
                 'tool_call_structure' => $toolCall,
@@ -276,10 +276,9 @@ class MessageProcessingService
             ]);
 
             if ($toolCall['type'] === 'function_call' &&
-                isset($toolCall['function']) &&
-                $toolCall['function']['name'] === 'add_row_to_sheets') {
+                $toolCall['name'] === 'add_row_to_sheets') {
 
-                $arguments = $toolCall['function']['arguments'];
+                $arguments = $toolCall['arguments'];
 
                 // Если arguments это строка, декодируем JSON
                 if (is_string($arguments)) {
