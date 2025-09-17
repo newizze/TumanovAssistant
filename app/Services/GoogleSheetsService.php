@@ -75,7 +75,7 @@ class GoogleSheetsService extends HttpService
     private function getAccessToken(): ?string
     {
         try {
-            $credentialsPath = base_path('credentials.json');
+            $credentialsPath = config('project.google_sheets.credentials_path');
 
             if (! file_exists($credentialsPath)) {
                 Log::error('Google credentials file not found', ['path' => $credentialsPath]);
