@@ -209,47 +209,25 @@ class MessageProcessingService
                 return $response->getContent() ?: 'Произошла ошибка при выполнении функций.';
             }
 
-            // Отправляем результаты функций в conversation через API
-            try {
-                $nextResponse = $this->openAIService->submitToolOutputs(
-                    $user->conversation_id,
-                    $response->id,
-                    $toolOutputs
-                );
-
-                Log::info('Tool outputs submitted successfully', [
-                    'iteration' => $iteration,
-                    'conversation_id' => $user->conversation_id,
-                    'response_id' => $response->id,
-                    'next_response_id' => $nextResponse->id,
-                ]);
-
-                // Продолжаем с новым response
-                $lastResponse = $nextResponse;
-
-                // Если новый response не содержит function calls, возвращаем результат
-                if (!$nextResponse->hasFunctionCalls()) {
-                    return $nextResponse->getContent() ?: 'Задача обработана.';
+            // В новом API просто возвращаем результат с информацией о выполненных функциях
+            $toolSummary = '';
+            foreach ($toolOutputs as $toolOutput) {
+                $output = json_decode($toolOutput['output'], true);
+                if ($output['success']) {
+                    $toolSummary .= "\n\n✅ " . $output['message'];
+                } else {
+                    $toolSummary .= "\n\n❌ Ошибка: " . $output['error'];
                 }
-
-                // Если есть еще function calls, подготавливаем следующую итерацию
-                $currentRequest = new ResponseRequestDto(
-                    model: $currentRequest->model,
-                    input: '', // Пустой input для продолжения conversation
-                    conversationId: $user->conversation_id,
-                    tools: $currentRequest->tools,
-                );
-
-            } catch (Exception $e) {
-                Log::error('Failed to submit tool outputs', [
-                    'iteration' => $iteration,
-                    'conversation_id' => $user->conversation_id,
-                    'response_id' => $response->id,
-                    'error' => $e->getMessage(),
-                ]);
-
-                return 'Произошла ошибка при обработке результатов функций: ' . $e->getMessage();
             }
+
+            Log::info('Tool outputs processed successfully', [
+                'iteration' => $iteration,
+                'conversation_id' => $user->conversation_id,
+                'response_id' => $response->id,
+                'tool_outputs_count' => count($toolOutputs),
+            ]);
+
+            return ($response->getContent() ?: 'Задача обработана.') . $toolSummary;
         }
 
         Log::warning('Reached maximum iterations without final response', [
