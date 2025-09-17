@@ -141,6 +141,51 @@ class TelegramService extends HttpService
         return true;
     }
 
+    public function editMessageReplyMarkup(int|string $chatId, int $messageId, ?TelegramInlineKeyboardDto $replyMarkup = null): bool
+    {
+        $this->ensureBotTokenConfigured();
+        
+        $data = [
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+        ];
+        
+        if ($replyMarkup !== null) {
+            $data['reply_markup'] = $replyMarkup->toArray();
+        } else {
+            // Убираем кнопки полностью
+            $data['reply_markup'] = json_encode(['inline_keyboard' => []]);
+        }
+        
+        $httpRequest = new HttpRequestDto(
+            method: 'POST',
+            url: $this->getApiUrl('editMessageReplyMarkup'),
+            data: $data,
+            timeout: 30,
+        );
+
+        Log::info('Editing message reply markup', [
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'removing_markup' => $replyMarkup === null,
+        ]);
+
+        $response = $this->request($httpRequest);
+
+        if (! $response->isOk()) {
+            Log::error('Failed to edit message reply markup', [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'status_code' => $response->statusCode,
+                'error' => $response->errorMessage,
+            ]);
+
+            return false;
+        }
+
+        return true;
+    }
+
     public function getFile(string $fileId): ?TelegramFileDto
     {
         $this->ensureBotTokenConfigured();
