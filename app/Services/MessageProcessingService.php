@@ -56,10 +56,11 @@ class MessageProcessingService
                 'telegram_username' => $user->username ?: 'unknown',
             ]);
 
-            // Подготавливаем запрос к AI с инструментами
+            // Подготавливаем запрос к AI с инструментами (включаем файлы)
+            $fullMessage = $messageText . $fileInfo;
             $requestDto = new ResponseRequestDto(
                 model: 'gpt-4.1',
-                input: $messageText,
+                input: $fullMessage,
                 instructions: $systemPrompt,
                 tools: [AddRowToSheetsToolDefinition::getDefinition()],
             );
