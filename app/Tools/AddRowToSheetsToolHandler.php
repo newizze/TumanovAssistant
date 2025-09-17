@@ -21,7 +21,7 @@ class AddRowToSheetsToolHandler
             ]);
 
             // Валидация обязательных параметров
-            $requiredFields = ['task_title', 'task_description', 'priority', 'executor'];
+            $requiredFields = ['task_title', 'task_description', 'expected_result', 'priority', 'task_type', 'executor', 'sender_name'];
             foreach ($requiredFields as $field) {
                 if (empty($arguments[$field])) {
                     return [
@@ -33,7 +33,7 @@ class AddRowToSheetsToolHandler
 
             // Получаем настройки из конфигурации
             $spreadsheetId = config('project.google_sheets.default_spreadsheet_id');
-            $range = 'A:Z'; // Временно хардкод, пока конфиг не обновится в проде
+            $range = config('project.google_sheets.default_range');
 
             if (empty($spreadsheetId)) {
                 return [
@@ -54,24 +54,17 @@ class AddRowToSheetsToolHandler
                 $taskId, // ID
                 date('d.m.Y H:i:s'), // Дата создания
                 $arguments['sender_name'] ?? '', // Отправитель ФИО
-                $arguments['executor'] ?? '', // Исполнитель (short_code)
+                $arguments['executor'] ?? '', // Исполнитель
                 $arguments['task_type'] ?? '', // Тип задачи
                 $arguments['task_title'], // Краткое название
                 $arguments['task_description'], // Подробное описание
                 $arguments['expected_result'] ?? '', // Ожидаемый конечный результат
                 $arguments['priority'], // Приоритет
-                $arguments['file_link_1'] ?? '', // Ссылка на файл отправителя 1
-                $arguments['file_link_2'] ?? '', // Ссылка на файл отправителя 2
-                $arguments['file_link_3'] ?? '', // Ссылка на файл отправителя 3
-                '', // План исполнителя
+                $arguments['file_link_1'] ?? '', // Ссылка на файл отправителя
+                $arguments['file_link_2'] ?? '', // Ссылка на файл отправителя2
+                $arguments['file_link_3'] ?? '', // Ссылка на файл отправителя3
+                '', // План исполнителя (не заполняем)
                 'Неразобранная', // Статус
-                '', // Дата факт готово
-                '', // Приложение от исполнителя
-                '', // Комментарий исполнителя
-                '', // Дата первого выхода из Неразобранная
-                $executorInfo['tg_username'] ?? '', // Почта сотрудника (используем tg_username)
-                $arguments['priority'], // Приоритет.
-                $executorInfo['tg_username'] ?? '', // Тг сотрудника
             ];
 
             // Добавляем строку в таблицу

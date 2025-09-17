@@ -63,7 +63,7 @@ class AddRowToSheetsToolDefinition
                             'description' => 'Ссылка на третий файл от отправителя (опционально)',
                         ],
                     ],
-                    'required' => ['task_title', 'task_description', 'priority', 'executor', 'sender_name'],
+                    'required' => ['task_title', 'task_description', 'expected_result', 'priority', 'task_type', 'executor', 'sender_name'],
                 ],
         ];
     }
