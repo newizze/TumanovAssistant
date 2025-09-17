@@ -338,7 +338,7 @@ class TelegramController extends Controller
 
             $this->sendReply(
                 $message->chat->id,
-                '🔄 Готов\\!'
+                '🔄 Готов!'
             );
 
         } catch (Exception $e) {
@@ -350,7 +350,7 @@ class TelegramController extends Controller
 
             $this->sendReply(
                 $message->chat->id,
-                '❌ Произошла ошибка при перезапуске\\. Попробуйте еще раз\\.'
+                '❌ Произошла ошибка при перезапуске. Попробуйте еще раз.'
             );
         }
     }
