@@ -1,0 +1,10 @@
+FROM nginx:stable
+
+# Установим certbot прямо внутрь nginx-контейнера
+RUN apt-get update && apt-get install -y \
+    certbot \
+    python3-certbot-nginx \
+    && rm -rf /var/lib/apt/lists/*
+
+# Конфиги nginx
+COPY ./docker/nginx/conf.d /etc/nginx/conf.d

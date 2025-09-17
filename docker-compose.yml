@@ -11,16 +11,20 @@ services:
         depends_on:
             - db
         env_file:
-            - .env   # Laravel конфиг
+            - .env
 
     web:
-        image: nginx:stable
+        build:
+            context: .
+            dockerfile: Dockerfile.nginx   # отдельный Dockerfile для nginx+certbot
         container_name: laravel_web
         ports:
             - "80:80"
+            - "443:443"
         volumes:
             - .:/var/www/html
             - ./docker/nginx/conf.d:/etc/nginx/conf.d
+            - ./docker/letsencrypt:/etc/letsencrypt
         depends_on:
             - app
 
@@ -31,7 +35,7 @@ services:
             - "3306:3306"
         restart: always
         env_file:
-            - .env.docker  # настройки только для MySQL
+            - .env.docker
         volumes:
             - db_data:/var/lib/mysql
 
