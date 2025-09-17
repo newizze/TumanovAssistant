@@ -13,7 +13,7 @@ final readonly class TelegramSendMessageDto
         public ?bool $disableWebPagePreview = null,
         public ?bool $disableNotification = null,
         public ?int $replyToMessageId = null,
-        public ?array $replyMarkup = null,
+        public ?TelegramInlineKeyboardDto $replyMarkup = null,
     ) {}
 
     public function toArray(): array
@@ -40,7 +40,7 @@ final readonly class TelegramSendMessageDto
         }
 
         if ($this->replyMarkup !== null) {
-            $data['reply_markup'] = $this->replyMarkup;
+            $data['reply_markup'] = $this->replyMarkup->toArray();
         }
 
         return $data;

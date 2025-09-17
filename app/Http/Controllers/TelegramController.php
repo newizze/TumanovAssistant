@@ -267,20 +267,63 @@ class TelegramController extends Controller
             'user_id' => $callbackQuery->from->id,
             'data' => $callbackQuery->data,
         ]);
+
+        // Получаем пользователя
+        $user = $this->getOrCreateUser($callbackQuery->from);
+
+        if (!$user->isActive()) {
+            Log::info('Inactive user tried to use callback', [
+                'callback_id' => $callbackQuery->id,
+                'user_id' => $callbackQuery->from->id,
+            ]);
+            return;
+        }
+
+        // Обрабатываем кнопку "Да" для подтверждения задачи
+        if ($callbackQuery->data === 'confirm_yes') {
+            $this->handleTaskConfirmation($callbackQuery, $user);
+        }
+    }
+
+    private function handleTaskConfirmation($callbackQuery, User $user): void
+    {
+        Log::info('Processing task confirmation', [
+            'callback_id' => $callbackQuery->id,
+            'user_id' => $callbackQuery->from->id,
+        ]);
+
+        // Отправляем "Да" как текстовое сообщение для обработки AI
+        $response = $this->messageProcessingService->processMessage('Да', $user);
+        
+        // Отправляем ответ пользователю
+        $this->sendReply($callbackQuery->message->chat->id, $response);
+
+        Log::info('Task confirmation processed', [
+            'callback_id' => $callbackQuery->id,
+            'user_id' => $callbackQuery->from->id,
+        ]);
     }
 
     private function sendReply(int $chatId, string $text): void
     {
-        // Prepare text for Telegram with proper Markdown formatting
-        $safeText = $this->markdownService->prepareForTelegram($text);
+        // Очищаем служебные маркеры перед отправкой
+        $cleanText = str_replace('<!-- NEED_CONFIRM -->', '', $text);
+        
+        // Проверяем, содержит ли сообщение черновик задачи с запросом подтверждения
+        if ($this->isDraftConfirmationMessage($text)) {
+            $success = $this->telegramService->sendMarkdownMessageWithYesButton($chatId, $cleanText);
+        } else {
+            // Prepare text for Telegram with proper Markdown formatting
+            $safeText = $this->markdownService->prepareForTelegram($cleanText);
 
-        $messageDto = new TelegramSendMessageDto(
-            chatId: $chatId,
-            text: $safeText,
-            parseMode: 'MarkdownV2',
-        );
+            $messageDto = new TelegramSendMessageDto(
+                chatId: $chatId,
+                text: $safeText,
+                parseMode: 'MarkdownV2',
+            );
 
-        $success = $this->telegramService->sendMessage($messageDto);
+            $success = $this->telegramService->sendMessage($messageDto);
+        }
 
         if (! $success) {
             Log::error('Failed to send reply message', [
@@ -288,6 +331,12 @@ class TelegramController extends Controller
                 'text_length' => strlen($text),
             ]);
         }
+    }
+
+    private function isDraftConfirmationMessage(string $text): bool
+    {
+        // Проверяем маркер need_confirm от AI
+        return str_contains($text, '<!-- NEED_CONFIRM -->');
     }
 
     private function validateWebhookSecret(Request $request): bool

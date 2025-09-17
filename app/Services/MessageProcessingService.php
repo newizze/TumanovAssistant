@@ -73,7 +73,10 @@ class MessageProcessingService
                 'response_length' => strlen($finalResponse),
             ]);
 
-            return $finalResponse;
+            // Проверяем, является ли ответ JSON
+            $parsedResponse = $this->parseAIResponse($finalResponse);
+            
+            return $parsedResponse;
 
         } catch (\Throwable $e) {
             Log::error('Failed to process message', [
@@ -343,5 +346,34 @@ class MessageProcessingService
         ]);
 
         return $toolOutputs;
+    }
+
+    private function parseAIResponse(string $response): string
+    {
+        // Пытаемся распарсить ответ как JSON
+        $decoded = json_decode(trim($response), true);
+        
+        if (json_last_error() === JSON_ERROR_NONE && isset($decoded['content'])) {
+            Log::info('AI response parsed as JSON', [
+                'has_need_confirm' => isset($decoded['need_confirm']),
+                'need_confirm' => $decoded['need_confirm'] ?? false,
+                'content_length' => strlen($decoded['content']),
+            ]);
+            
+            // Возвращаем контент, а информацию о need_confirm передаем через специальный формат
+            if (isset($decoded['need_confirm']) && $decoded['need_confirm'] === true) {
+                return $decoded['content'] . "\n<!-- NEED_CONFIRM -->";
+            }
+            
+            return $decoded['content'];
+        }
+        
+        Log::info('AI response is not JSON, returning as-is', [
+            'response_length' => strlen($response),
+            'json_error' => json_last_error_msg(),
+        ]);
+        
+        // Если не JSON или нет поля content, возвращаем как есть
+        return $response;
     }
 }

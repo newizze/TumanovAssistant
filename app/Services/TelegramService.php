@@ -6,6 +6,8 @@ namespace App\Services;
 
 use App\DTOs\HttpRequestDto;
 use App\DTOs\Telegram\TelegramFileDto;
+use App\DTOs\Telegram\TelegramInlineKeyboardButtonDto;
+use App\DTOs\Telegram\TelegramInlineKeyboardDto;
 use App\DTOs\Telegram\TelegramSendMessageDto;
 use Exception;
 use Illuminate\Support\Facades\Log;
@@ -74,6 +76,29 @@ class TelegramService extends HttpService
             chatId: $chatId,
             text: $formattedText,
             parseMode: 'MarkdownV2'
+        );
+
+        return $this->sendMessage($messageDto);
+    }
+
+    public function sendMarkdownMessageWithYesButton(int|string $chatId, string $text): bool
+    {
+        $formattedText = $this->markdownService->prepareForTelegram($text);
+        
+        $yesButton = new TelegramInlineKeyboardButtonDto(
+            text: 'Да',
+            callbackData: 'confirm_yes'
+        );
+        
+        $keyboard = new TelegramInlineKeyboardDto([
+            [$yesButton]
+        ]);
+        
+        $messageDto = new TelegramSendMessageDto(
+            chatId: $chatId,
+            text: $formattedText,
+            parseMode: 'MarkdownV2',
+            replyMarkup: $keyboard
         );
 
         return $this->sendMessage($messageDto);
