@@ -147,6 +147,12 @@ class TelegramController extends Controller
             'has_files' => $message->hasFiles(),
         ]);
 
+        // Проверяем команду /restart
+        if ($messageText === '/restart') {
+            $this->handleRestartCommand($message, $user);
+            return;
+        }
+
         // Обрабатываем файлы если есть
         $fileLinks = [];
         if ($message->hasFiles()) {
@@ -311,6 +317,42 @@ class TelegramController extends Controller
         }
 
         return $isValid;
+    }
+
+    private function handleRestartCommand($message, User $user): void
+    {
+        Log::info('Processing /restart command', [
+            'message_id' => $message->messageId,
+            'user_id' => $message->from->id,
+            'telegram_id' => $user->telegram_id,
+        ]);
+
+        try {
+            // Очищаем conversation данные пользователя
+            $user->clearConversationData();
+
+            Log::info('User conversation data cleared successfully', [
+                'user_id' => $user->id,
+                'telegram_id' => $user->telegram_id,
+            ]);
+
+            $this->sendReply(
+                $message->chat->id,
+                '🔄 Готов\\!'
+            );
+
+        } catch (Exception $e) {
+            Log::error('Failed to clear conversation data', [
+                'user_id' => $user->id,
+                'telegram_id' => $user->telegram_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->sendReply(
+                $message->chat->id,
+                '❌ Произошла ошибка при перезапуске\\. Попробуйте еще раз\\.'
+            );
+        }
     }
 
     private function getOrCreateUser($telegramUser): User

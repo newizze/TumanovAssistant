@@ -77,4 +77,15 @@ class User extends Authenticatable
     {
         return $this->is_active;
     }
+
+    /**
+     * Очищает данные conversation пользователя
+     */
+    public function clearConversationData(): void
+    {
+        $this->update([
+            'conversation_id' => null,
+            'conversation_updated_at' => null,
+        ]);
+    }
 }
