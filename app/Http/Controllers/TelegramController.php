@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\DTOs\Telegram\TelegramSendMessageDto;
+use App\Services\MarkdownService;
 use App\DTOs\Telegram\TelegramWebhookDto;
 use App\Models\User;
 use App\Services\MessageProcessingService;
@@ -23,6 +24,7 @@ class TelegramController extends Controller
         private readonly OpenAIResponseService $openAIService,
         private readonly MessageProcessingService $messageProcessingService,
         private readonly TelegramFileService $telegramFileService,
+        private readonly MarkdownService $markdownService,
     ) {}
 
     public function webhook(Request $request): JsonResponse
@@ -263,9 +265,13 @@ class TelegramController extends Controller
 
     private function sendReply(int $chatId, string $text): void
     {
+        // Prepare text for Telegram Markdown
+        $safeText = $this->markdownService->prepareForTelegram($text);
+        
         $messageDto = new TelegramSendMessageDto(
             chatId: $chatId,
-            text: $text,
+            text: $safeText,
+            parseMode: 'Markdown',
         );
 
         $success = $this->telegramService->sendMessage($messageDto);
