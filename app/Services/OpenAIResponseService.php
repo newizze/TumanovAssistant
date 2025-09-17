@@ -281,4 +281,47 @@ class OpenAIResponseService extends HttpService
             }
         }
     }
+
+    public function submitToolOutputs(string $conversationId, string $responseId, array $toolOutputs): ModelResponseDto
+    {
+        $httpRequest = new HttpRequestDto(
+            method: 'POST',
+            url: self::OPENAI_BASE_URL.self::CONVERSATIONS_ENDPOINT."/{$conversationId}/responses/{$responseId}/tool_outputs",
+            data: ['tool_outputs' => $toolOutputs],
+            bearerToken: $this->apiKey,
+            timeout: 120,
+        );
+
+        Log::info('Submitting tool outputs to conversation', [
+            'conversation_id' => $conversationId,
+            'response_id' => $responseId,
+            'tool_outputs_count' => count($toolOutputs),
+            'tool_outputs' => $toolOutputs,
+        ]);
+
+        $response = $this->request($httpRequest);
+
+        if (! $response->isOk()) {
+            Log::error('Tool outputs submission failed', [
+                'conversation_id' => $conversationId,
+                'response_id' => $responseId,
+                'status_code' => $response->statusCode,
+                'error' => $response->errorMessage,
+                'response_body' => $response->body,
+            ]);
+
+            throw new Exception("Failed to submit tool outputs: {$response->errorMessage}");
+        }
+
+        $responseData = $response->getJsonData();
+        
+        Log::info('Tool outputs submitted successfully', [
+            'conversation_id' => $conversationId,
+            'response_id' => $responseId,
+            'new_response_id' => $responseData['id'] ?? 'unknown',
+            'status' => $responseData['status'] ?? 'unknown',
+        ]);
+
+        return ModelResponseDto::fromArray($responseData);
+    }
 }
