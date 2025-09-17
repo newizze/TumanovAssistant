@@ -104,6 +104,43 @@ class TelegramService extends HttpService
         return $this->sendMessage($messageDto);
     }
 
+    public function answerCallbackQuery(string $callbackQueryId, ?string $text = null): bool
+    {
+        $this->ensureBotTokenConfigured();
+        
+        $data = ['callback_query_id' => $callbackQueryId];
+        
+        if ($text !== null) {
+            $data['text'] = $text;
+        }
+        
+        $httpRequest = new HttpRequestDto(
+            method: 'POST',
+            url: $this->getApiUrl('answerCallbackQuery'),
+            data: $data,
+            timeout: 30,
+        );
+
+        Log::info('Answering callback query', [
+            'callback_query_id' => $callbackQueryId,
+            'has_text' => $text !== null,
+        ]);
+
+        $response = $this->request($httpRequest);
+
+        if (! $response->isOk()) {
+            Log::error('Failed to answer callback query', [
+                'callback_query_id' => $callbackQueryId,
+                'status_code' => $response->statusCode,
+                'error' => $response->errorMessage,
+            ]);
+
+            return false;
+        }
+
+        return true;
+    }
+
     public function getFile(string $fileId): ?TelegramFileDto
     {
         $this->ensureBotTokenConfigured();
