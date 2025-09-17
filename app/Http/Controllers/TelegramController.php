@@ -110,7 +110,7 @@ class TelegramController extends Controller
 
         // Проверяем активность пользователя
         $user = $this->getOrCreateUser($message->from);
-        
+
         if (! $user->isActive()) {
             Log::info('Inactive user tried to send message', [
                 'message_id' => $message->messageId,
@@ -267,11 +267,11 @@ class TelegramController extends Controller
     {
         // Prepare text for Telegram with proper Markdown formatting
         $safeText = $this->markdownService->prepareForTelegram($text);
-        
+
         $messageDto = new TelegramSendMessageDto(
             chatId: $chatId,
             text: $safeText,
-            parseMode: 'Markdown',
+            parseMode: 'MarkdownV2',
         );
 
         $success = $this->telegramService->sendMessage($messageDto);
