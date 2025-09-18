@@ -53,8 +53,8 @@ class AddRowToSheetsToolHandler
             $rowData = [
                 $taskId, // ID
                 date('d.m.Y H:i:s'), // Дата создания
-                $arguments['sender_name'] ?? '', // Отправитель ФИО
                 $arguments['executor'] ?? '', // Исполнитель
+                $arguments['sender_name'] ?? '', // Отправитель ФИО
                 $arguments['task_type'] ?? '', // Тип задачи
                 $arguments['task_title'], // Краткое название
                 $arguments['task_description'], // Подробное описание
