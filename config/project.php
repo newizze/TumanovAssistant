@@ -49,52 +49,5 @@ return [
         'default_spreadsheet_id' => env('GOOGLE_SHEETS_SPREADSHEET_ID'),
         'default_range' => env('GOOGLE_SHEETS_DEFAULT_RANGE', 'A:Z'),
         'credentials_path' => base_path('credentials.json'),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Task Management Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Configuration for task management including available executors
-    | and their corresponding full names and Telegram handles.
-    |
-    */
-    'executors' => [
-        [
-            'name' => 'Николай Туманов',
-            'short_code' => 'ГД НТ',
-            'tg_username' => '@NickTumanov',
-        ],
-        [
-            'name' => 'Матюшин Денис',
-            'short_code' => 'ОД ДМ',
-            'tg_username' => '@albega1',
-        ],
-        [
-            'name' => 'Абрамов Дмитрий Юрьевич',
-            'short_code' => 'РОП ДА',
-            'tg_username' => '@pro_abramov',
-        ],
-        [
-            'name' => 'Коротков И. В.',
-            'short_code' => 'РОМ ИК',
-            'tg_username' => '@i_krtkv',
-        ],
-        [
-            'name' => 'Голубева Александра Алексеевна',
-            'short_code' => 'АС ГД',
-            'tg_username' => '@leksiru',
-        ],
-        [
-            'name' => 'Туктарова Диана Ильшатовна',
-            'short_code' => 'ФД ДТ',
-            'tg_username' => '@withlove_diana',
-        ],
-        [
-            'name' => 'Владислав Умнов IT',
-            'short_code' => 'ИТ ВУ',
-            'tg_username' => '@VladislavUmnov',
-        ],
-    ],
+    ]
 ];
