@@ -91,7 +91,7 @@ class SetupTelegramWebhookCommand extends Command
         try {
             $info = $this->telegramService->getWebhookInfo();
 
-            if (empty($info)) {
+            if ($info === []) {
                 $this->error('Failed to get webhook info');
 
                 return Command::FAILURE;

@@ -11,27 +11,38 @@ use Illuminate\Support\Facades\Log;
 class ExecutorService
 {
     private const EXECUTORS_SPREADSHEET_ID = '1PKFf72F2DuyfEXAz2bLwP5nyOdcqsqfH4qJGXB_b26E';
+
     private const EXECUTORS_RANGE = 'A:H';
+
     private const CACHE_KEY = 'approved_executors';
+
     private const CACHE_TTL = 3600; // 1 hour
 
     public function __construct(
         private readonly GoogleSheetsService $googleSheetsService
     ) {}
 
+    /**
+     * @return array<int, array<string, string>>
+     */
     public function getApprovedExecutors(): array
     {
-        return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () {
-            return $this->fetchExecutorsFromSheet();
-        });
+        return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, fn (): array => $this->fetchExecutorsFromSheet());
     }
 
+    /**
+     * @return array<int, array<string, string>>
+     */
     public function refreshExecutorsCache(): array
     {
         Cache::forget(self::CACHE_KEY);
+
         return $this->getApprovedExecutors();
     }
 
+    /**
+     * @return array<int, array<string, string>>
+     */
     private function fetchExecutorsFromSheet(): array
     {
         try {
@@ -46,14 +57,17 @@ class ExecutorService
                 Log::error('Failed to fetch executors from Google Sheets', [
                     'error' => $response->errorMessage,
                 ]);
-                return $this->getFallbackExecutors();
+
+                throw new \Exception("Failed to fetch executors from Google Sheets: {$response->errorMessage}");
             }
 
             $values = $response->data['values'] ?? [];
             $executors = [];
+            // Skip header row (index 0)
+            $counter = count($values);
 
             // Skip header row (index 0)
-            for ($i = 1; $i < count($values); $i++) {
+            for ($i = 1; $i < $counter; $i++) {
                 $row = $values[$i];
 
                 // Check if row has enough columns and status is "Подтверждаю"
@@ -87,7 +101,7 @@ class ExecutorService
                 'exception' => $e->getMessage(),
             ]);
 
-            return $this->getFallbackExecutors();
+            throw new \Exception("Failed to fetch executors from Google Sheets: {$e->getMessage()}", $e->getCode(), $e);
         }
     }
 
@@ -108,10 +122,4 @@ class ExecutorService
         return $nameMapping[$shortCode] ?? $shortCode;
     }
 
-    private function getFallbackExecutors(): array
-    {
-        Log::warning('Using fallback executors from config due to Google Sheets error');
-
-        return config('project.executors', []);
-    }
 }

@@ -63,7 +63,7 @@ final readonly class ModelResponseDto
 
     public function getContent(): ?string
     {
-        if (empty($this->output)) {
+        if ($this->output === []) {
             return null;
         }
 
@@ -82,7 +82,7 @@ final readonly class ModelResponseDto
 
     public function hasFunctionCalls(): bool
     {
-        if (empty($this->output)) {
+        if ($this->output === []) {
             return false;
         }
 
@@ -97,7 +97,7 @@ final readonly class ModelResponseDto
 
     public function getFunctionCalls(): array
     {
-        if (empty($this->output)) {
+        if ($this->output === []) {
             return [];
         }
 

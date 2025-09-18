@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\DTOs\Telegram\TelegramSendMessageDto;
-use App\Services\MarkdownService;
 use App\DTOs\Telegram\TelegramWebhookDto;
 use App\Models\User;
+use App\Services\MarkdownService;
 use App\Services\MessageProcessingService;
 use App\Services\OpenAIResponseService;
 use App\Services\TelegramFileService;
@@ -86,7 +86,7 @@ class TelegramController extends Controller
         }
     }
 
-    private function processMessage($message): void
+    private function processMessage(?\App\DTOs\Telegram\TelegramMessageDto $message): void
     {
         Log::info('Processing Telegram message', [
             'message_id' => $message->messageId,
@@ -120,6 +120,7 @@ class TelegramController extends Controller
             ]);
 
             $this->sendReply($message->chat->id, 'Ваш аккаунт не активирован. Обратитесь к администратору для активации.');
+
             return;
         }
 
@@ -151,6 +152,7 @@ class TelegramController extends Controller
         // Проверяем команду /restart
         if ($messageText === '/restart') {
             $this->handleRestartCommand($message, $user);
+
             return;
         }
 
@@ -162,7 +164,7 @@ class TelegramController extends Controller
             $fileIds = $message->getAllFileIds();
             $fileLinks = $this->telegramFileService->processMessageFiles($fileIds);
 
-            if (! empty($fileLinks)) {
+            if ($fileLinks !== []) {
                 Log::info('Files processed successfully', [
                     'message_id' => $message->messageId,
                     'user_id' => $message->from->id,
@@ -185,7 +187,7 @@ class TelegramController extends Controller
         }
 
         // Если есть текст или файлы - обрабатываем через AI
-        if ($messageText || ! empty($fileLinks)) {
+        if ($messageText || $fileLinks !== []) {
             // Передаем текст и ссылки на файлы в MessageProcessingService
             $response = $this->messageProcessingService->processMessage(
                 $messageText ?? '',
@@ -213,7 +215,7 @@ class TelegramController extends Controller
         try {
             $fileDto = $this->telegramService->getFile($message->voice->fileId);
 
-            if (! $fileDto) {
+            if (! $fileDto instanceof \App\DTOs\Telegram\TelegramFileDto) {
                 $this->sendReply($message->chat->id, 'Ошибка: не удалось получить информацию о файле.');
 
                 return;
@@ -261,7 +263,7 @@ class TelegramController extends Controller
         }
     }
 
-    private function processCallbackQuery($callbackQuery): void
+    private function processCallbackQuery(?\App\DTOs\Telegram\TelegramCallbackQueryDto $callbackQuery): void
     {
         Log::info('Processing callback query', [
             'callback_id' => $callbackQuery->id,
@@ -272,11 +274,12 @@ class TelegramController extends Controller
         // Получаем пользователя
         $user = $this->getOrCreateUser($callbackQuery->from);
 
-        if (!$user->isActive()) {
+        if (! $user->isActive()) {
             Log::info('Inactive user tried to use callback', [
                 'callback_id' => $callbackQuery->id,
                 'user_id' => $callbackQuery->from->id,
             ]);
+
             return;
         }
 
@@ -304,7 +307,7 @@ class TelegramController extends Controller
 
         // Отправляем "Да" как текстовое сообщение для обработки AI
         $response = $this->messageProcessingService->processMessage('Да', $user);
-        
+
         // Отправляем ответ пользователю
         $this->sendReply($callbackQuery->message->chat->id, $response);
 
@@ -318,7 +321,7 @@ class TelegramController extends Controller
     {
         // Очищаем служебные маркеры перед отправкой
         $cleanText = str_replace('<!-- NEED_CONFIRM -->', '', $text);
-        
+
         // Проверяем, содержит ли сообщение черновик задачи с запросом подтверждения
         if ($this->isDraftConfirmationMessage($text)) {
             $success = $this->telegramService->sendMarkdownMessageWithYesButton($chatId, $cleanText);
@@ -355,7 +358,7 @@ class TelegramController extends Controller
 
         // Временно отключаем проверку для тестирования callback queries
         return true;
-        
+
         // If no secret token is configured, skip validation
         if (empty($expectedToken)) {
             return true;

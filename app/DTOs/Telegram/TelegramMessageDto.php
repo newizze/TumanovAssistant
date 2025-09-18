@@ -25,7 +25,7 @@ final readonly class TelegramMessageDto
         $photo = null;
         if (isset($data['photo']) && is_array($data['photo'])) {
             $photo = array_map(
-                fn ($photoData) => TelegramPhotoSizeDto::fromArray($photoData),
+                fn ($photoData): \App\DTOs\Telegram\TelegramPhotoSizeDto => TelegramPhotoSizeDto::fromArray($photoData),
                 $data['photo']
             );
         }
@@ -51,7 +51,7 @@ final readonly class TelegramMessageDto
 
     public function hasVoice(): bool
     {
-        return $this->voice !== null;
+        return $this->voice instanceof \App\DTOs\Telegram\TelegramVoiceDto;
     }
 
     public function hasPhoto(): bool
@@ -61,7 +61,7 @@ final readonly class TelegramMessageDto
 
     public function hasDocument(): bool
     {
-        return $this->document !== null;
+        return $this->document instanceof \App\DTOs\Telegram\TelegramDocumentDto;
     }
 
     public function hasCaption(): bool

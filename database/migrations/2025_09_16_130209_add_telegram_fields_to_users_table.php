@@ -40,7 +40,7 @@ return new class extends Migration
             $table->dropColumn([
                 'telegram_id',
                 'username',
-                'is_active'
+                'is_active',
             ]);
         });
     }

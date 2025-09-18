@@ -7,7 +7,7 @@ namespace App\DTOs\Telegram;
 final readonly class TelegramInlineKeyboardDto
 {
     /**
-     * @param array<array<TelegramInlineKeyboardButtonDto>> $keyboard
+     * @param  array<array<TelegramInlineKeyboardButtonDto>>  $keyboard
      */
     public function __construct(
         public array $keyboard,
@@ -16,7 +16,7 @@ final readonly class TelegramInlineKeyboardDto
     public function toArray(): array
     {
         $keyboardArray = [];
-        
+
         foreach ($this->keyboard as $row) {
             $rowArray = [];
             foreach ($row as $button) {

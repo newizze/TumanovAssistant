@@ -25,6 +25,6 @@ final readonly class WhisperTranscriptionResponseDto
 
     public function hasText(): bool
     {
-        return ! empty(trim($this->text));
+        return ! in_array(trim($this->text), ['', '0'], true);
     }
 }

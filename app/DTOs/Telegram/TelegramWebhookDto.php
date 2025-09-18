@@ -23,11 +23,11 @@ final readonly class TelegramWebhookDto
 
     public function hasMessage(): bool
     {
-        return $this->message !== null;
+        return $this->message instanceof \App\DTOs\Telegram\TelegramMessageDto;
     }
 
     public function hasCallbackQuery(): bool
     {
-        return $this->callbackQuery !== null;
+        return $this->callbackQuery instanceof \App\DTOs\Telegram\TelegramCallbackQueryDto;
     }
 }

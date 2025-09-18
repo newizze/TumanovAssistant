@@ -49,5 +49,6 @@ return [
         'default_spreadsheet_id' => env('GOOGLE_SHEETS_SPREADSHEET_ID'),
         'default_range' => env('GOOGLE_SHEETS_DEFAULT_RANGE', 'A:Z'),
         'credentials_path' => base_path('credentials.json'),
-    ]
+    ],
+
 ];

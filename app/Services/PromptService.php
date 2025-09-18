@@ -24,10 +24,10 @@ class PromptService
 
         try {
             $xmlContent = File::get($filePath);
-            
+
             // Сначала подставляем переменные в сырой XML
             $xmlContentWithVariables = $this->substituteVariables($xmlContent, $variables);
-            
+
             // Парсим XML для валидации
             $xml = new SimpleXMLElement($xmlContentWithVariables);
 
@@ -38,10 +38,9 @@ class PromptService
                 'file' => $filePath,
                 'error' => $e->getMessage(),
             ]);
-            throw new Exception("Failed to load prompt '{$promptName}': ".$e->getMessage());
+            throw new Exception("Failed to load prompt '{$promptName}': ".$e->getMessage(), $e->getCode(), $e);
         }
     }
-
 
     private function substituteVariables(string $prompt, array $variables): string
     {
@@ -77,6 +76,6 @@ class PromptService
 
         $files = File::glob($promptsPath.'/*.xml');
 
-        return array_map(fn ($file) => pathinfo((string) $file, PATHINFO_FILENAME), $files);
+        return array_map(fn ($file): string => pathinfo((string) $file, PATHINFO_FILENAME), $files);
     }
 }

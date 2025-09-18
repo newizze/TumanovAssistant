@@ -57,7 +57,8 @@ class User extends Authenticatable
     /**
      * Scope для активных пользователей
      */
-    public function scopeActive($query)
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function active($query)
     {
         return $query->where('is_active', true);
     }
@@ -65,7 +66,8 @@ class User extends Authenticatable
     /**
      * Scope для пользователей Telegram
      */
-    public function scopeTelegram($query)
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function telegram($query)
     {
         return $query->whereNotNull('telegram_id');
     }

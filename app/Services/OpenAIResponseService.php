@@ -37,7 +37,7 @@ class OpenAIResponseService extends HttpService
         parent::__construct();
         $this->apiKey = config('services.openai.api_key');
 
-        if (empty($this->apiKey)) {
+        if ($this->apiKey === '' || $this->apiKey === '0') {
             throw new Exception('OpenAI API key not configured');
         }
     }
@@ -75,7 +75,7 @@ class OpenAIResponseService extends HttpService
             'user_id' => $user->id,
             'conversation_id' => $conversationId,
             'model' => $requestDto->model,
-            'has_tools' => ! empty($requestDto->tools),
+            'has_tools' => $requestDto->tools !== null && $requestDto->tools !== [],
             'request_data' => $requestDto->toArray(), // Логируем весь запрос
         ]);
 
@@ -93,14 +93,14 @@ class OpenAIResponseService extends HttpService
         }
 
         $responseData = $response->getJsonData();
-        
+
         Log::info('OpenAI API response received', [
             'response_id' => $responseData['id'] ?? 'unknown',
             'status' => $responseData['status'] ?? 'unknown',
             'output_count' => count($responseData['output'] ?? []),
             'full_response' => $responseData, // Логируем полный ответ для отладки
         ]);
-        
+
         $modelResponse = ModelResponseDto::fromArray($responseData);
 
         $this->updateUserConversation($user, $conversationId ?? $responseData['conversation_id'] ?? null);
@@ -248,7 +248,7 @@ class OpenAIResponseService extends HttpService
                 'error' => $e->getMessage(),
             ]);
 
-            throw new Exception("Transcription request failed: {$e->getMessage()}");
+            throw new Exception("Transcription request failed: {$e->getMessage()}", $e->getCode(), $e);
         }
     }
 
@@ -275,12 +275,11 @@ class OpenAIResponseService extends HttpService
                 'filename' => $filename,
             ]);
 
-            throw new Exception("Audio transcription failed: {$e->getMessage()}");
+            throw new Exception("Audio transcription failed: {$e->getMessage()}", $e->getCode(), $e);
         } finally {
             if (file_exists($tempPath)) {
                 unlink($tempPath);
             }
         }
     }
-
 }

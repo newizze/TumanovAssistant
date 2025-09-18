@@ -17,54 +17,54 @@ class AddRowToSheetsToolDefinition
             'name' => 'add_row_to_sheets',
             'description' => 'Добавляет новую строку в указанную Google Sheets таблицу с данными задачи',
             'parameters' => [
-                    'type' => 'object',
-                    'additionalProperties' => false,
-                    'properties' => [
-                        'task_title' => [
-                            'type' => 'string',
-                            'description' => 'Краткое название задачи',
-                        ],
-                        'task_description' => [
-                            'type' => 'string',
-                            'description' => 'Подробное описание задачи',
-                        ],
-                        'expected_result' => [
-                            'type' => 'string',
-                            'description' => 'Ожидаемый конечный результат',
-                        ],
-                        'priority' => [
-                            'type' => 'string',
-                            'enum' => ['Высокий', 'Средний', 'Низкий'],
-                            'description' => 'Приоритет задачи',
-                        ],
-                        'task_type' => [
-                            'type' => 'string',
-                            'description' => 'Тип задачи (например: Разработка, Настройка, Исправление, Анализ и т.д.)',
-                        ],
-                        'executor' => [
-                            'type' => 'string',
-                            'enum' => $executorCodes,
-                            'description' => 'Исполнитель задачи (выбери подходящего из списка)',
-                        ],
-                        'sender_name' => [
-                            'type' => 'string',
-                            'description' => 'ФИО отправителя задачи',
-                        ],
-                        'file_link_1' => [
-                            'type' => 'string',
-                            'description' => 'Ссылка на первый файл от отправителя (опционально)',
-                        ],
-                        'file_link_2' => [
-                            'type' => 'string',
-                            'description' => 'Ссылка на второй файл от отправителя (опционально)',
-                        ],
-                        'file_link_3' => [
-                            'type' => 'string',
-                            'description' => 'Ссылка на третий файл от отправителя (опционально)',
-                        ],
+                'type' => 'object',
+                'additionalProperties' => false,
+                'properties' => [
+                    'task_title' => [
+                        'type' => 'string',
+                        'description' => 'Краткое название задачи',
                     ],
-                    'required' => ['task_title', 'task_description', 'expected_result', 'priority', 'task_type', 'executor', 'sender_name'],
+                    'task_description' => [
+                        'type' => 'string',
+                        'description' => 'Подробное описание задачи',
+                    ],
+                    'expected_result' => [
+                        'type' => 'string',
+                        'description' => 'Ожидаемый конечный результат',
+                    ],
+                    'priority' => [
+                        'type' => 'string',
+                        'enum' => ['Высокий', 'Средний', 'Низкий'],
+                        'description' => 'Приоритет задачи',
+                    ],
+                    'task_type' => [
+                        'type' => 'string',
+                        'description' => 'Тип задачи (например: Разработка, Настройка, Исправление, Анализ и т.д.)',
+                    ],
+                    'executor' => [
+                        'type' => 'string',
+                        'enum' => $executorCodes,
+                        'description' => 'Исполнитель задачи (выбери подходящего из списка)',
+                    ],
+                    'sender_name' => [
+                        'type' => 'string',
+                        'description' => 'ФИО отправителя задачи',
+                    ],
+                    'file_link_1' => [
+                        'type' => 'string',
+                        'description' => 'Ссылка на первый файл от отправителя (опционально)',
+                    ],
+                    'file_link_2' => [
+                        'type' => 'string',
+                        'description' => 'Ссылка на второй файл от отправителя (опционально)',
+                    ],
+                    'file_link_3' => [
+                        'type' => 'string',
+                        'description' => 'Ссылка на третий файл от отправителя (опционально)',
+                    ],
                 ],
+                'required' => ['task_title', 'task_description', 'expected_result', 'priority', 'task_type', 'executor', 'sender_name'],
+            ],
         ];
     }
 }

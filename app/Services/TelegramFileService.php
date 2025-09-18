@@ -31,7 +31,7 @@ class TelegramFileService
             // Получаем информацию о файле
             $fileInfo = $this->telegramService->getFile($fileId);
 
-            if (! $fileInfo) {
+            if (! $fileInfo instanceof \App\DTOs\Telegram\TelegramFileDto) {
                 Log::error('Failed to get file info from Telegram', [
                     'file_id' => $fileId,
                 ]);

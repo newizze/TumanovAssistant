@@ -30,7 +30,7 @@ class MessageProcessingService
 
             // Подготавливаем информацию о файлах для промпта
             $fileInfo = '';
-            if (! empty($fileLinks)) {
+            if ($fileLinks !== []) {
                 $fileInfo = "\n\nПрикрепленные файлы:\n";
                 foreach ($fileLinks as $index => $fileLink) {
                     $fileInfo .= ($index + 1).'. '.$fileLink."\n";
@@ -58,7 +58,7 @@ class MessageProcessingService
             ]);
 
             // Подготавливаем запрос к AI с инструментами (включаем файлы)
-            $fullMessage = $messageText . $fileInfo;
+            $fullMessage = $messageText.$fileInfo;
             $requestDto = new ResponseRequestDto(
                 model: 'gpt-4.1',
                 input: $fullMessage,
@@ -76,7 +76,7 @@ class MessageProcessingService
 
             // Проверяем, является ли ответ JSON
             $parsedResponse = $this->parseAIResponse($finalResponse);
-            
+
             return $parsedResponse;
 
         } catch (\Throwable $e) {
@@ -147,7 +147,7 @@ class MessageProcessingService
             }
 
             // Если есть результаты функций, формируем ответ
-            if (! empty($toolResults)) {
+            if ($toolResults !== []) {
                 $toolSummary = '';
                 foreach ($toolResults as $toolResult) {
                     $output = json_decode($toolResult['function_result']['output'], true);
@@ -158,7 +158,7 @@ class MessageProcessingService
                     }
                 }
 
-                return ($content ?: 'Задача обработана.') . $toolSummary;
+                return ($content ?: 'Задача обработана.').$toolSummary;
             }
         }
 
@@ -200,7 +200,7 @@ class MessageProcessingService
             $response = $this->openAIService->createResponse($cleanRequest, $user);
             $lastResponse = $response;
 
-            if (!$response->hasFunctionCalls()) {
+            if (! $response->hasFunctionCalls()) {
                 // Нет вызовов функций - возвращаем финальный ответ
                 Log::info('No function calls in response, returning final answer', [
                     'iteration' => $iteration,
@@ -221,7 +221,7 @@ class MessageProcessingService
 
             $toolOutputs = $this->executeFunctionCalls($functionCalls);
 
-            if (empty($toolOutputs)) {
+            if ($toolOutputs === []) {
                 // Функции не выполнились - возвращаем то что есть
                 Log::warning('Function calls failed to execute', [
                     'iteration' => $iteration,
@@ -234,11 +234,11 @@ class MessageProcessingService
             // В новом API просто возвращаем результат с информацией о выполненных функциях
             $toolSummary = '';
             foreach ($toolOutputs as $toolOutput) {
-                $output = json_decode($toolOutput['output'], true);
+                $output = json_decode((string) $toolOutput['output'], true);
                 if ($output['success']) {
-                    $toolSummary .= "\n\n✅ " . $output['message'];
+                    $toolSummary .= "\n\n✅ ".$output['message'];
                 } else {
-                    $toolSummary .= "\n\n❌ Ошибка: " . $output['error'];
+                    $toolSummary .= "\n\n❌ Ошибка: ".$output['error'];
                 }
             }
 
@@ -256,7 +256,7 @@ class MessageProcessingService
                     // Находим соответствующий tool output
                     foreach ($toolOutputs as $toolOutput) {
                         if ($toolOutput['tool_call_id'] === ($functionCall['id'] ?? $functionCall['call_id'] ?? '')) {
-                            $output = json_decode($toolOutput['output'], true);
+                            $output = json_decode((string) $toolOutput['output'], true);
                             if ($output['success']) {
                                 $hasSuccessfulSheetsTool = true;
                                 break 2;
@@ -274,7 +274,7 @@ class MessageProcessingService
                 ]);
             }
 
-            return ($response->getContent() ?: 'Задача обработана.') . $toolSummary;
+            return ($response->getContent() ?: 'Задача обработана.').$toolSummary;
         }
 
         Log::warning('Reached maximum iterations without final response', [
@@ -353,27 +353,27 @@ class MessageProcessingService
     {
         // Пытаемся распарсить ответ как JSON
         $decoded = json_decode(trim($response), true);
-        
+
         if (json_last_error() === JSON_ERROR_NONE && isset($decoded['content'])) {
             Log::info('AI response parsed as JSON', [
                 'has_need_confirm' => isset($decoded['need_confirm']),
                 'need_confirm' => $decoded['need_confirm'] ?? false,
-                'content_length' => strlen($decoded['content']),
+                'content_length' => strlen((string) $decoded['content']),
             ]);
-            
+
             // Возвращаем контент, а информацию о need_confirm передаем через специальный формат
             if (isset($decoded['need_confirm']) && $decoded['need_confirm'] === true) {
-                return $decoded['content'] . "\n<!-- NEED_CONFIRM -->";
+                return $decoded['content']."\n<!-- NEED_CONFIRM -->";
             }
-            
+
             return $decoded['content'];
         }
-        
+
         Log::info('AI response is not JSON, returning as-is', [
             'response_length' => strlen($response),
             'json_error' => json_last_error_msg(),
         ]);
-        
+
         // Если не JSON или нет поля content, возвращаем как есть
         return $response;
     }

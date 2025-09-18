@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Rector\Config\RectorConfig;
 use Rector\Set\ValueObject\LevelSetList;
+use Rector\Set\ValueObject\SetList;
 use RectorLaravel\Set\LaravelSetList;
 
 return RectorConfig::configure()
@@ -23,8 +24,8 @@ return RectorConfig::configure()
     ])
     ->withSets([
         LevelSetList::UP_TO_PHP_82,
-        LaravelSetList::LARAVEL_110,
+        LaravelSetList::LARAVEL_120,
+        SetList::CODE_QUALITY,
+        SetList::TYPE_DECLARATION,
     ])
-    ->withTypeCoverageLevel(0)
-    ->withDeadCodeLevel(0)
-    ->withCodeQualityLevel(0);
+    ->withDeadCodeLevel(0);

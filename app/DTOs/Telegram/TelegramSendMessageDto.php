@@ -39,7 +39,7 @@ final readonly class TelegramSendMessageDto
             $data['reply_to_message_id'] = $this->replyToMessageId;
         }
 
-        if ($this->replyMarkup !== null) {
+        if ($this->replyMarkup instanceof \App\DTOs\Telegram\TelegramInlineKeyboardDto) {
             $data['reply_markup'] = $this->replyMarkup->toArray();
         }
 

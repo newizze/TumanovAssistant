@@ -61,7 +61,6 @@ final readonly class ResponseRequestDto
             $data['tool_choice'] = $this->toolChoice;
         }
 
-
         if ($this->metadata !== null) {
             $data['metadata'] = $this->metadata;
         }

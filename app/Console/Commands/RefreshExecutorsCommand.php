@@ -20,8 +20,8 @@ class RefreshExecutorsCommand extends Command
         try {
             $executors = $executorService->refreshExecutorsCache();
 
-            $this->info("✅ Successfully refreshed executors cache.");
-            $this->info("Found " . count($executors) . " approved executors:");
+            $this->info('✅ Successfully refreshed executors cache.');
+            $this->info('Found '.count($executors).' approved executors:');
 
             foreach ($executors as $executor) {
                 $this->line("  • {$executor['short_code']} - {$executor['name']} {$executor['tg_username']}");
@@ -30,7 +30,8 @@ class RefreshExecutorsCommand extends Command
             return Command::SUCCESS;
 
         } catch (\Throwable $e) {
-            $this->error("❌ Failed to refresh executors cache: " . $e->getMessage());
+            $this->error('❌ Failed to refresh executors cache: '.$e->getMessage());
+
             return Command::FAILURE;
         }
     }

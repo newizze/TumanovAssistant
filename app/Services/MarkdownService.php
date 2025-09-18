@@ -24,6 +24,7 @@ final class MarkdownService
     {
         $text = $this->normalizeAiMarkdown($text);
         $text = $this->toTelegramMarkdownV2($text);
+
         return $this->truncateSafe($text, self::TG_LIMIT);
     }
 
@@ -33,14 +34,14 @@ final class MarkdownService
     private function normalizeAiMarkdown(string $t): string
     {
         // **bold** -> *bold*
-        $t = preg_replace_callback('/\*\*(.+?)\*\*/s', fn($m) => '*' . $m[1] . '*', $t);
+        $t = preg_replace_callback('/\*\*(.+?)\*\*/s', fn ($m): string => '*'.$m[1].'*', $t);
 
         // ~~strike~~ -> ~strike~
-        $t = preg_replace('/~~(.+?)~~/s', '~$1~', $t);
+        $t = preg_replace('/~~(.+?)~~/s', '~$1~', (string) $t);
 
         // заголовки (#, ## ...) телега не рендерит — просто экранируем при общем экранировании
         // списки: заменим "- " в начале строки на "• " чтобы не городить экранирование
-        $t = preg_replace('/^(?:\s*[-*]\s+)/m', '• ', $t);
+        $t = preg_replace('/^(?:\s*[-*]\s+)/m', '• ', (string) $t);
 
         return $t;
     }
@@ -53,71 +54,78 @@ final class MarkdownService
         $place = []; // плейсхолдеры => оригинал
         $i = 0;
 
-        $makePh = function(string $orig) use (&$place, &$i): string {
+        $makePh = function (string $orig) use (&$place, &$i): string {
             $key = "\x1A".(++$i)."\x1A"; // маловероятный токен
             $place[$key] = $orig;
+
             return $key;
         };
 
         // 1) защитим тройные код-блоки ```...```
-        $t = preg_replace_callback('/```(.*?)```/s', function($m) use ($makePh) {
-            $code = preg_replace('/([\\\\`])/', '\\\\$1', $m[1]); // в code/pre экранируем только \ и `
+        $t = preg_replace_callback('/```(.*?)```/s', function ($m) use ($makePh): string {
+            $code = preg_replace('/([\\\\`])/', '\\\\$1', (string) $m[1]); // в code/pre экранируем только \ и `
+
             return $makePh("```{$code}```");
         }, $t);
 
         // 2) защитим инлайн-код `...`
-        $t = preg_replace_callback('/`([^`]+)`/', function($m) use ($makePh) {
-            $code = preg_replace('/([\\\\`])/', '\\\\$1', $m[1]);
+        $t = preg_replace_callback('/`([^`]+)`/', function ($m) use ($makePh): string {
+            $code = preg_replace('/([\\\\`])/', '\\\\$1', (string) $m[1]);
+
             return $makePh("`{$code}`");
-        }, $t);
+        }, (string) $t);
 
         // 3) защитим ссылки [text](url) с правильным экранированием в скобках
-        $t = preg_replace_callback('/\[([^\]]+)\]\(([^)]+)\)/s', function($m) use ($makePh) {
+        $t = preg_replace_callback('/\[([^\]]+)\]\(([^)]+)\)/s', function ($m) use ($makePh): string {
             $text = $this->escapeAll($m[1]);      // внутри "текста" — общий набор
-            $url  = str_replace(['\\', ')'], ['\\\\', '\)'], $m[2]); // внутри (...) только ) и \
+            $url = str_replace(['\\', ')'], ['\\\\', '\)'], $m[2]); // внутри (...) только ) и \
+
             return $makePh("[{$text}]({$url})");
-        }, $t);
+        }, (string) $t);
 
         // 4) защитим спойлеры ||...||
-        $t = preg_replace_callback('/\|\|(.+?)\|\|/s', function($m) use ($makePh) {
+        $t = preg_replace_callback('/\|\|(.+?)\|\|/s', function ($m) use ($makePh): string {
             $inner = $this->escapeAll($m[1]);
+
             return $makePh("||{$inner}||");
-        }, $t);
+        }, (string) $t);
 
         // 5) защитим подчёркивание __...__ (underline)
-        $t = preg_replace_callback('/__([^_]+)__/', function($m) use ($makePh) {
+        $t = preg_replace_callback('/__([^_]+)__/', function ($m) use ($makePh): string {
             $inner = $this->escapeAll($m[1]);
+
             return $makePh("__{$inner}__");
-        }, $t);
+        }, (string) $t);
 
         // 6) защитим курсив _..._
-        $t = preg_replace_callback('/_(?!_)([^_\n]+)_(?!_)/', function($m) use ($makePh) {
+        $t = preg_replace_callback('/_(?!_)([^_\n]+)_(?!_)/', function ($m) use ($makePh): string {
             $inner = $this->escapeAll($m[1]);
+
             return $makePh("_{$inner}_");
-        }, $t);
+        }, (string) $t);
 
         // 7) защитим жирный *...*
-        $t = preg_replace_callback('/(?<!\*)\*([^*\n]+)\*(?!\*)/', function($m) use ($makePh) {
+        $t = preg_replace_callback('/(?<!\*)\*([^*\n]+)\*(?!\*)/', function ($m) use ($makePh): string {
             $inner = $this->escapeAll($m[1]);
+
             return $makePh("*{$inner}*");
-        }, $t);
+        }, (string) $t);
 
         // 8) защитим зачёркнутый ~...~
-        $t = preg_replace_callback('/~([^~\n]+)~/', function($m) use ($makePh) {
+        $t = preg_replace_callback('/~([^~\n]+)~/', function ($m) use ($makePh): string {
             $inner = $this->escapeAll($m[1]);
+
             return $makePh("~{$inner}~");
-        }, $t);
+        }, (string) $t);
 
         // 9) защитим блок-цитаты в начале строк: '>' (оставим как разметку, не экранируем)
-        $t = preg_replace_callback('/^(\s*>+)/m', function($m) use ($makePh) {
-            return $makePh($m[1]);
-        }, $t);
+        $t = preg_replace_callback('/^(\s*>+)/m', fn ($m): string => $makePh($m[1]), (string) $t);
 
         // 10) экранируем всё остальное по правилам MarkdownV2
         $t = $this->escapeAll($t);
 
         // 11) вернём плейсхолдеры
-        if (!empty($place)) {
+        if ($place !== []) {
             $t = strtr($t, $place);
         }
 
@@ -131,7 +139,8 @@ final class MarkdownService
     {
         // Особый случай: '>' как маркер цитаты мы уже защитили плейсхолдером, остальные '>' экранируем
         $from = self::ESCAPE_SET;
-        $to   = array_map(fn($c) => '\\' . $c, self::ESCAPE_SET);
+        $to = array_map(fn (string $c): string => '\\'.$c, self::ESCAPE_SET);
+
         return str_replace($from, $to, $t);
     }
 
@@ -141,36 +150,40 @@ final class MarkdownService
         $t = $this->fixUnpairedDelimiters($t, '*');
         $t = $this->fixUnpairedDelimiters($t, '_');
         $t = $this->fixUnpairedDelimiters($t, '~');
+
         return $t;
     }
 
     private function fixUnpairedDelimiters(string $text, string $delimiter): string
     {
         // Найдем все неэкранированные вхождения delimiter
-        $pattern = '/(?<!\\\\)' . preg_quote($delimiter, '/') . '/';
+        $pattern = '/(?<!\\\\)'.preg_quote($delimiter, '/').'/';
         preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE);
-        
+
         $count = count($matches[0]);
-        
+
         // Если нечетное количество - экранируем последний
         if ($count % 2 !== 0) {
             $lastMatch = end($matches[0]);
             $offset = $lastMatch[1];
-            $text = substr_replace($text, '\\' . $delimiter, $offset, 1);
+            $text = substr_replace($text, '\\'.$delimiter, $offset, 1);
         }
-        
+
         return $text;
     }
 
     private function truncateSafe(string $t, int $max): string
     {
-        if (mb_strlen($t, 'UTF-8') <= $max) return $t;
+        if (mb_strlen($t, 'UTF-8') <= $max) {
+            return $t;
+        }
 
         $cut = mb_substr($t, 0, $max - 1, 'UTF-8'); // оставим место под "…"
         // не заканчиваемся на обратном слэше
         while (mb_substr($cut, -1, 1, 'UTF-8') === '\\') {
             $cut = mb_substr($cut, 0, mb_strlen($cut, 'UTF-8') - 1, 'UTF-8');
         }
-        return $cut . '…';
+
+        return $cut.'…';
     }
 }
