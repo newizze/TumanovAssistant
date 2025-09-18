@@ -81,10 +81,7 @@ class MessageProcessingService
                 'response_length' => strlen($finalResponse),
             ]);
 
-            // Проверяем, является ли ответ JSON
-            $parsedResponse = $this->parseAIResponse($finalResponse);
-
-            return $parsedResponse;
+            return $finalResponse;
 
         } catch (\Throwable $e) {
             Log::error('Failed to process message', [
@@ -215,7 +212,8 @@ class MessageProcessingService
                     'response_content' => $response->getContent(),
                 ]);
 
-                return $response->getContent() ?: 'Задача обработана.';
+                $content = $response->getContent() ?: 'Задача обработана.';
+                return $this->parseAIResponse($content);
             }
 
             // Есть вызовы функций - обрабатываем их
@@ -281,7 +279,9 @@ class MessageProcessingService
                 ]);
             }
 
-            return ($response->getContent() ?: 'Задача обработана.').$toolSummary;
+            $content = $response->getContent() ?: 'Задача обработана.';
+            $parsedContent = $this->parseAIResponse($content);
+            return $parsedContent.$toolSummary;
         }
 
         Log::warning('Reached maximum iterations without final response', [
@@ -290,7 +290,8 @@ class MessageProcessingService
             'last_response_content' => $lastResponse?->getContent(),
         ]);
 
-        return $lastResponse?->getContent() ?: 'Превышено максимальное количество итераций. Задача может быть не полностью обработана.';
+        $content = $lastResponse?->getContent() ?: 'Превышено максимальное количество итераций. Задача может быть не полностью обработана.';
+        return $this->parseAIResponse($content);
     }
 
     private function executeFunctionCalls(array $functionCalls): array
