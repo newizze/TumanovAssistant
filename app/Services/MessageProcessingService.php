@@ -15,7 +15,8 @@ class MessageProcessingService
     public function __construct(
         private readonly OpenAIResponseService $openAIService,
         private readonly PromptService $promptService,
-        private readonly AddRowToSheetsToolHandler $toolHandler
+        private readonly AddRowToSheetsToolHandler $toolHandler,
+        private readonly ExecutorService $executorService
     ) {}
 
     public function processMessage(string $messageText, User $user, array $fileLinks = []): string
@@ -36,8 +37,8 @@ class MessageProcessingService
                 }
             }
 
-            // Получаем список исполнителей из конфига
-            $executors = config('project.executors', []);
+            // Получаем список исполнителей из Google Sheets
+            $executors = $this->executorService->getApprovedExecutors();
             $executorsList = '';
             foreach ($executors as $executor) {
                 $executorsList .= "• {$executor['short_code']} - {$executor['name']}";

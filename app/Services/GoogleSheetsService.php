@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\DTOs\GoogleSheets\GoogleSheetsAddRowDto;
+use App\DTOs\GoogleSheets\GoogleSheetsReadDto;
 use App\DTOs\GoogleSheets\GoogleSheetsResponseDto;
 use App\DTOs\HttpRequestDto;
 use Illuminate\Support\Facades\Log;
@@ -65,6 +66,72 @@ class GoogleSheetsService extends HttpService
 
         } catch (\Throwable $e) {
             Log::error('Exception occurred while adding row to Google Sheets', [
+                'exception' => $e->getMessage(),
+                'spreadsheet_id' => $dto->spreadsheetId,
+                'range' => $dto->range,
+            ]);
+
+            return GoogleSheetsResponseDto::error($e->getMessage());
+        }
+    }
+
+    public function readValues(GoogleSheetsReadDto $dto): GoogleSheetsResponseDto
+    {
+        try {
+            $accessToken = $this->getAccessToken();
+            if (! $accessToken) {
+                return GoogleSheetsResponseDto::error('Failed to get access token');
+            }
+
+            $queryParams = http_build_query([
+                'majorDimension' => $dto->majorDimension,
+                'valueRenderOption' => $dto->valueRenderOption,
+                'dateTimeRenderOption' => $dto->dateTimeRenderOption,
+            ]);
+
+            $url = sprintf(
+                '%s/%s/values/%s?%s',
+                self::SHEETS_API_BASE_URL,
+                $dto->spreadsheetId,
+                urlencode($dto->range),
+                $queryParams
+            );
+
+            $request = new HttpRequestDto(
+                method: 'GET',
+                url: $url,
+                bearerToken: $accessToken
+            );
+
+            $response = $this->request($request);
+
+            if ($response->hasError()) {
+                Log::error('Google Sheets read request failed', [
+                    'error' => $response->errorMessage,
+                    'status_code' => $response->statusCode,
+                    'response_body' => $response->body,
+                    'spreadsheet_id' => $dto->spreadsheetId,
+                    'range' => $dto->range,
+                    'url' => $url,
+                ]);
+
+                return GoogleSheetsResponseDto::error(
+                    $response->errorMessage ?? 'Google Sheets read request failed'
+                );
+            }
+
+            $responseData = $response->getJsonData();
+
+            Log::info('Successfully read values from Google Sheets', [
+                'spreadsheet_id' => $dto->spreadsheetId,
+                'range' => $dto->range,
+                'rows_count' => count($responseData['values'] ?? []),
+            ]);
+
+            return GoogleSheetsResponseDto::success($responseData);
+
+        } catch (\Throwable $e) {
+            Log::error('Exception occurred while reading values from Google Sheets', [
                 'exception' => $e->getMessage(),
                 'spreadsheet_id' => $dto->spreadsheetId,
                 'range' => $dto->range,
