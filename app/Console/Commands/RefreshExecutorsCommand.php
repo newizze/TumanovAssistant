@@ -24,7 +24,8 @@ class RefreshExecutorsCommand extends Command
             $this->info('Found '.count($executors).' approved executors:');
 
             foreach ($executors as $executor) {
-                $this->line("  • {$executor['short_code']} - {$executor['name']} {$executor['tg_username']}");
+                $position = $executor['position'] ? " ({$executor['position']})" : '';
+                $this->line("  • {$executor['short_code']} - {$executor['full_name']}{$position} {$executor['tg_username']}");
             }
 
             return Command::SUCCESS;

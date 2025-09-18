@@ -41,7 +41,10 @@ class MessageProcessingService
             $executors = $this->executorService->getApprovedExecutors();
             $executorsList = '';
             foreach ($executors as $executor) {
-                $executorsList .= "• {$executor['short_code']} - {$executor['name']}";
+                $executorsList .= "• {$executor['short_code']} - {$executor['full_name']}";
+                if ($executor['position']) {
+                    $executorsList .= " ({$executor['position']})";
+                }
                 if ($executor['tg_username']) {
                     $executorsList .= " {$executor['tg_username']}";
                 }

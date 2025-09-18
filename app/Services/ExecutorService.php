@@ -12,7 +12,7 @@ class ExecutorService
 {
     private const EXECUTORS_SPREADSHEET_ID = '1PKFf72F2DuyfEXAz2bLwP5nyOdcqsqfH4qJGXB_b26E';
 
-    private const EXECUTORS_RANGE = 'A:H';
+    private const EXECUTORS_RANGE = 'A:L';
 
     private const CACHE_KEY = 'approved_executors';
 
@@ -71,18 +71,28 @@ class ExecutorService
                 $row = $values[$i];
 
                 // Check if row has enough columns and status is "Подтверждаю"
-                if (count($row) >= 7) {
+                if (count($row) >= 12) {
                     $comment = trim($row[6] ?? ''); // Column G - "Комментарий Николая"
 
                     if ($comment === 'Подтверждаю') {
-                        $name = $this->extractFullName($row[3] ?? '');
-                        $shortCode = $row[3] ?? '';
-                        $telegram = $row[5] ?? '';
+                        $shortCode = trim($row[3] ?? ''); // Column D - Аббревиатура
+                        $telegram = trim($row[5] ?? '');  // Column F - Telegram
+                        $position = trim($row[8] ?? '');  // Column I - Должность
+                        $firstName = trim($row[9] ?? ''); // Column J - Имя
+                        $lastName = trim($row[10] ?? ''); // Column K - Фамилия
+                        $middleName = trim($row[11] ?? ''); // Column L - Отчество
 
-                        if ($name && $shortCode && $telegram) {
+                        // Собираем полное имя
+                        $fullName = trim("$lastName $firstName $middleName");
+
+                        if ($shortCode && $telegram && $fullName) {
                             $executors[] = [
-                                'name' => $name,
                                 'short_code' => $shortCode,
+                                'full_name' => $fullName,
+                                'position' => $position,
+                                'first_name' => $firstName,
+                                'last_name' => $lastName,
+                                'middle_name' => $middleName,
                                 'tg_username' => $telegram,
                             ];
                         }
@@ -105,21 +115,5 @@ class ExecutorService
         }
     }
 
-    private function extractFullName(string $shortCode): string
-    {
-        // Map short codes to full names based on known data
-        $nameMapping = [
-            'РОП ДА' => 'Абрамов Дмитрий Юрьевич',
-            'РОМ ИК' => 'Коротков И. В.',
-            'АС ГД' => 'Голубева Александра Алексеевна',
-            'ФД ДТ' => 'Туктарова Диана Ильшатовна',
-            'ОД ДМ' => 'Матюшин Денис',
-            'ИТ ВУ' => 'Владислав Умнов IT',
-            'ФК ЭБ' => 'Элеонора Бабои',
-            'М АО' => 'Андрей Орлов',
-        ];
-
-        return $nameMapping[$shortCode] ?? $shortCode;
-    }
 
 }
