@@ -51,6 +51,9 @@ class MessageProcessingService
                 $executorsList .= "\n";
             }
 
+            // Получаем определение инструмента для промпта
+            $toolDefinition = json_encode(AddRowToSheetsToolDefinition::getDefinition(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
             // Получаем промпт из XML файла
             $systemPrompt = $this->promptService->loadPrompt('task_creation', [
                 'current_date' => now()->format('Y-m-d'),
@@ -58,6 +61,7 @@ class MessageProcessingService
                 'user_message' => $messageText.$fileInfo,
                 'executors_list' => trim($executorsList),
                 'telegram_username' => $user->username ?: 'unknown',
+                'tool_definition' => $toolDefinition,
             ]);
 
             // Подготавливаем запрос к AI с инструментами (включаем файлы)
