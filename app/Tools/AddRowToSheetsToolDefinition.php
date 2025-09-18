@@ -48,7 +48,7 @@ class AddRowToSheetsToolDefinition
                     ],
                     'sender_name' => [
                         'type' => 'string',
-                        'description' => 'Исполнитель задачи (выбери подходящего из списка), например ГД НТ',
+                        'description' => 'Отправитель задачи (выбери подходящего из списка), например ГД НТ',
                     ],
                     'file_link_1' => [
                         'type' => 'string',
