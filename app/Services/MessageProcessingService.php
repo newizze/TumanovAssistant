@@ -63,7 +63,7 @@ class MessageProcessingService
             // Подготавливаем запрос к AI с инструментами (включаем файлы)
             $fullMessage = $messageText.$fileInfo;
             $requestDto = new ResponseRequestDto(
-                model: 'gpt-4.1',
+                model: 'gpt-4o',
                 input: $fullMessage,
                 instructions: $systemPrompt,
                 tools: [AddRowToSheetsToolDefinition::getDefinition()],
