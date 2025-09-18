@@ -41,12 +41,12 @@ class MessageProcessingService
             $executors = $this->executorService->getApprovedExecutors();
             $executorsList = '';
             foreach ($executors as $executor) {
-                $executorsList .= "• {$executor['short_code']} - {$executor['full_name']}";
+                $executorsList .= "• Код: {$executor['short_code']} | ФИО: {$executor['full_name']}";
                 if ($executor['position']) {
-                    $executorsList .= " ({$executor['position']})";
+                    $executorsList .= " | Должность: {$executor['position']}";
                 }
                 if ($executor['tg_username']) {
-                    $executorsList .= " {$executor['tg_username']}";
+                    $executorsList .= " | Telegram: {$executor['tg_username']}";
                 }
                 $executorsList .= "\n";
             }
