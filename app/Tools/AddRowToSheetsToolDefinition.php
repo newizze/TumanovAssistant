@@ -44,11 +44,11 @@ class AddRowToSheetsToolDefinition
                     'executor' => [
                         'type' => 'string',
                         'enum' => $executorCodes,
-                        'description' => 'Исполнитель задачи (выбери подходящего из списка)',
+                        'description' => 'Исполнитель задачи (выбери подходящего из списка), например ИТ ВУ',
                     ],
                     'sender_name' => [
                         'type' => 'string',
-                        'description' => 'ФИО отправителя задачи',
+                        'description' => 'Исполнитель задачи (выбери подходящего из списка), например ГД НТ',
                     ],
                     'file_link_1' => [
                         'type' => 'string',
