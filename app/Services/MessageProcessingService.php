@@ -67,7 +67,7 @@ class MessageProcessingService
             // Подготавливаем запрос к AI с инструментами (включаем файлы)
             $fullMessage = $messageText.$fileInfo;
             $requestDto = new ResponseRequestDto(
-                model: 'gpt-4o',
+                model: 'gpt-4.1',
                 input: $fullMessage,
                 instructions: $systemPrompt,
                 tools: [AddRowToSheetsToolDefinition::getDefinition()],
@@ -359,8 +359,11 @@ class MessageProcessingService
 
     private function parseAIResponse(string $response): string
     {
+        // Убираем markdown блоки кода, если они есть
+        $cleanResponse = preg_replace('/^```json\s*|\s*```$/m', '', trim($response));
+
         // Пытаемся распарсить ответ как JSON
-        $decoded = json_decode(trim($response), true);
+        $decoded = json_decode(trim($cleanResponse), true);
 
         if (json_last_error() === JSON_ERROR_NONE && isset($decoded['content'])) {
             Log::info('AI response parsed as JSON', [
