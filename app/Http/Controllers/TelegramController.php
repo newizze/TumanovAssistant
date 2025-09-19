@@ -298,7 +298,7 @@ class TelegramController extends Controller
 
         // Сначала отвечаем на callback query чтобы убрать загрузку
         $this->telegramService->answerCallbackQuery($callbackQuery->id);
-
+        $this->sendReply($callbackQuery->message->chat->id, "Создаю вашу задачу...");
         // Убираем кнопку из сообщения
         $this->telegramService->editMessageReplyMarkup(
             $callbackQuery->message->chat->id,

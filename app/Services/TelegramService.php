@@ -86,7 +86,7 @@ class TelegramService extends HttpService
         $formattedText = $this->markdownService->prepareForTelegram($text);
 
         $yesButton = new TelegramInlineKeyboardButtonDto(
-            text: 'Да',
+            text: 'Создать',
             callbackData: 'confirm_yes'
         );
 
