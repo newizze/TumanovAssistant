@@ -81,17 +81,27 @@ class TelegramService extends HttpService
         return $this->sendMessage($messageDto);
     }
 
-    public function sendMarkdownMessageWithYesButton(int|string $chatId, string $text): bool
+    public function sendMarkdownMessageWithThreeButtons(int|string $chatId, string $text): bool
     {
         $formattedText = $this->markdownService->prepareForTelegram($text);
 
-        $yesButton = new TelegramInlineKeyboardButtonDto(
-            text: 'Создать',
+        $cancelButton = new TelegramInlineKeyboardButtonDto(
+            text: 'Отмена',
+            callbackData: 'task_cancel'
+        );
+
+        $newTaskButton = new TelegramInlineKeyboardButtonDto(
+            text: 'Новая задача',
+            callbackData: 'task_new'
+        );
+
+        $sendButton = new TelegramInlineKeyboardButtonDto(
+            text: 'Отправить',
             callbackData: 'confirm_yes'
         );
 
         $keyboard = new TelegramInlineKeyboardDto([
-            [$yesButton],
+            [$cancelButton, $newTaskButton, $sendButton],
         ]);
 
         $messageDto = new TelegramSendMessageDto(

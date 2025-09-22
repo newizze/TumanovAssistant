@@ -283,10 +283,13 @@ class TelegramController extends Controller
             return;
         }
 
-        // Обрабатываем кнопку "Да" для подтверждения задачи
-        if ($callbackQuery->data === 'confirm_yes') {
-            $this->handleTaskConfirmation($callbackQuery, $user);
-        }
+        // Обрабатываем различные callback данные
+        match ($callbackQuery->data) {
+            'confirm_yes' => $this->handleTaskConfirmation($callbackQuery, $user),
+            'task_cancel' => $this->handleTaskCancel($callbackQuery, $user),
+            'task_new' => $this->handleNewTask($callbackQuery, $user),
+            default => Log::warning('Unknown callback data', ['data' => $callbackQuery->data])
+        };
     }
 
     private function handleTaskConfirmation($callbackQuery, User $user): void
@@ -298,7 +301,7 @@ class TelegramController extends Controller
 
         // Сначала отвечаем на callback query чтобы убрать загрузку
         $this->telegramService->answerCallbackQuery($callbackQuery->id);
-        $this->sendReply($callbackQuery->message->chat->id, "Создаю вашу задачу...");
+        $this->sendReply($callbackQuery->message->chat->id, 'Создаю вашу задачу...');
         // Убираем кнопку из сообщения
         $this->telegramService->editMessageReplyMarkup(
             $callbackQuery->message->chat->id,
@@ -317,6 +320,59 @@ class TelegramController extends Controller
         ]);
     }
 
+    private function handleTaskCancel($callbackQuery, User $user): void
+    {
+        Log::info('Processing task cancellation', [
+            'callback_id' => $callbackQuery->id,
+            'user_id' => $callbackQuery->from->id,
+        ]);
+
+        // Отвечаем на callback query
+        $this->telegramService->answerCallbackQuery($callbackQuery->id);
+
+        // Полностью скрываем сообщение с черновиком и кнопками
+        $this->telegramService->editMessageReplyMarkup(
+            $callbackQuery->message->chat->id,
+            $callbackQuery->message->messageId
+        );
+
+        // Очищаем данные разговора пользователя
+        $user->clearConversationData();
+
+        Log::info('Task cancelled and conversation cleared', [
+            'callback_id' => $callbackQuery->id,
+            'user_id' => $callbackQuery->from->id,
+        ]);
+    }
+
+    private function handleNewTask($callbackQuery, User $user): void
+    {
+        Log::info('Processing new task request', [
+            'callback_id' => $callbackQuery->id,
+            'user_id' => $callbackQuery->from->id,
+        ]);
+
+        // Отвечаем на callback query
+        $this->telegramService->answerCallbackQuery($callbackQuery->id);
+
+        // Убираем кнопки из текущего сообщения
+        $this->telegramService->editMessageReplyMarkup(
+            $callbackQuery->message->chat->id,
+            $callbackQuery->message->messageId
+        );
+
+        // Очищаем данные разговора пользователя
+        $user->clearConversationData();
+
+        // Отправляем приглашение к созданию новой задачи
+        $this->sendReply($callbackQuery->message->chat->id, 'Готов принять новую задачу. Опишите что нужно сделать.');
+
+        Log::info('New task flow initiated', [
+            'callback_id' => $callbackQuery->id,
+            'user_id' => $callbackQuery->from->id,
+        ]);
+    }
+
     private function sendReply(int $chatId, string $text): void
     {
         // Очищаем служебные маркеры перед отправкой
@@ -324,7 +380,7 @@ class TelegramController extends Controller
 
         // Проверяем, содержит ли сообщение черновик задачи с запросом подтверждения
         if ($this->isDraftConfirmationMessage($text)) {
-            $success = $this->telegramService->sendMarkdownMessageWithYesButton($chatId, $cleanText);
+            $success = $this->telegramService->sendMarkdownMessageWithThreeButtons($chatId, $cleanText);
         } else {
             // Prepare text for Telegram with proper Markdown formatting
             $safeText = $this->markdownService->prepareForTelegram($cleanText);
