@@ -46,7 +46,9 @@ class PromptService
     {
         foreach ($variables as $key => $value) {
             $placeholder = '{{'.$key.'}}';
-            $prompt = str_replace($placeholder, (string) $value, $prompt);
+            // Экранируем специальные символы XML
+            $escapedValue = htmlspecialchars((string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+            $prompt = str_replace($placeholder, $escapedValue, $prompt);
         }
 
         $this->validateSubstitution($prompt);
