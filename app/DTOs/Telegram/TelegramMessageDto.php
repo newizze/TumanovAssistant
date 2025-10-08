@@ -6,6 +6,10 @@ namespace App\DTOs\Telegram;
 
 final readonly class TelegramMessageDto
 {
+    /**
+     * @param array<TelegramPhotoSizeDto>|null $photo
+     * @param array<mixed>|null $entities
+     */
     public function __construct(
         public int $messageId,
         public TelegramUserDto $from,
@@ -79,13 +83,19 @@ final readonly class TelegramMessageDto
      */
     public function getLargestPhotoFileId(): ?string
     {
-        if (! $this->hasPhoto()) {
+        if (! $this->hasPhoto() || $this->photo === null) {
             return null;
         }
 
-        $lastPhoto = $this->photo[array_key_last($this->photo)];
+        /** @var array<TelegramPhotoSizeDto> $photo */
+        $photo = $this->photo;
+        $lastKey = array_key_last($photo);
 
-        return $lastPhoto->fileId;
+        if ($lastKey === null) {
+            return null;
+        }
+
+        return $photo[$lastKey]->fileId;
     }
 
     public function getDocumentFileId(): ?string

@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+    # 🧠 PHP-FPM (Laravel backend)
     app:
         build:
             context: .
@@ -12,22 +13,33 @@ services:
             - db
         env_file:
             - .env
+        restart: always
+        networks:
+            - default
 
+    # 🌐 Nginx для Laravel
     web:
         build:
             context: .
-            dockerfile: Dockerfile.nginx   # отдельный Dockerfile для nginx+certbot
+            dockerfile: Dockerfile.nginx
         container_name: laravel_web
-        ports:
-            - "80:80"
-            - "443:443"
+        expose:
+            - "80" # не пробрасываем наружу — общение только через reverse-proxy
+        environment:
+            - VIRTUAL_HOST=assistant.tumanov.group
+            - LETSENCRYPT_HOST=assistant.tumanov.group
+            - LETSENCRYPT_EMAIL=admin@tumanov.group
+        depends_on:
+            - app
         volumes:
             - .:/var/www/html
             - ./docker/nginx/conf.d:/etc/nginx/conf.d
-            - ./docker/letsencrypt:/etc/letsencrypt
-        depends_on:
-            - app
+        restart: always
+        networks:
+            - default
+            - www_default # сеть reverse-proxy
 
+    # 🗄️ MySQL
     db:
         image: mysql:8.0
         container_name: laravel_db
@@ -38,6 +50,15 @@ services:
             - .env.docker
         volumes:
             - db_data:/var/lib/mysql
+        networks:
+            - default
 
 volumes:
     db_data:
+
+networks:
+    default:
+        driver: bridge
+
+    www_default: # внешняя сеть nginx-proxy
+        external: true
