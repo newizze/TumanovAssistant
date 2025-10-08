@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
     # 🧠 PHP-FPM (Laravel backend)
     app:
