@@ -119,7 +119,7 @@ class TelegramController extends Controller
                 'telegram_id' => $user->telegram_id,
             ]);
 
-            $this->sendReply($message->chat->id, 'Ваш аккаунт не активирован. Обратитесь к администратору для активации.');
+            $this->sendReply($message->chat->id, 'Ваш аккаунт не активирован. Обратитесь к администратору (@VladislavUmnov) для активации.');
 
             return;
         }
