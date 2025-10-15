@@ -615,11 +615,9 @@ class TelegramController extends Controller
         // Проверяем, содержит ли сообщение черновик задачи с запросом подтверждения
         if ($this->isDraftConfirmationMessage($finalText)) {
             // Для сообщений с подтверждением - удаляем временное уведомление и отправляем новое с кнопками
-            $this->telegramService->editMessageText(
+            $this->telegramService->deleteMessage(
                 $notification->chatId,
-                $notification->messageId,
-                $this->markdownService->prepareForTelegram('Обработка завершена'),
-                'MarkdownV2'
+                $notification->messageId
             );
 
             $this->telegramService->sendMarkdownMessageWithThreeButtons($notification->chatId, $cleanText);
