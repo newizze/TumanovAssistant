@@ -62,8 +62,8 @@ class AddRowToSheetsToolHandlerTest extends TestCase
         $expectation = $this->mockAction
             ->shouldReceive('execute')
             ->withArgs(function (string $spreadsheetId, string $range, array $values): bool {
-                // Проверяем, что поле "Требуется ли проверка" установлено в "Нет" (последний элемент массива)
-                $this->assertEquals('Нет', $values[14]);
+                // Проверяем, что поле "Требуется ли проверка" установлено в "Нет" (последний элемент массива - индекс 29)
+                $this->assertEquals('Нет', $values[29]);
                 $this->assertEquals('test-spreadsheet-id', $spreadsheetId);
                 $this->assertEquals('Sheet1!A:Z', $range);
 
@@ -81,7 +81,7 @@ class AddRowToSheetsToolHandlerTest extends TestCase
         $result = $this->handler->handle($arguments);
 
         $this->assertTrue($result['success']);
-        $this->assertEquals("Задача 'Тестовая задача' успешно добавлена в таблицу", $result['message']);
+        $this->assertEquals('Задача обработана', $result['message']);
     }
 
     public function test_handle_adds_task_with_verification_required(): void
@@ -100,8 +100,8 @@ class AddRowToSheetsToolHandlerTest extends TestCase
         $expectation = $this->mockAction
             ->shouldReceive('execute')
             ->withArgs(function (string $spreadsheetId, string $range, array $values): bool {
-                // Проверяем, что поле "Требуется ли проверка" установлено в "Да"
-                $this->assertEquals('Да', $values[14]);
+                // Проверяем, что поле "Требуется ли проверка" установлено в "Да" (индекс 29)
+                $this->assertEquals('Да', $values[29]);
 
                 return true;
             });
@@ -135,8 +135,8 @@ class AddRowToSheetsToolHandlerTest extends TestCase
         $expectation = $this->mockAction
             ->shouldReceive('execute')
             ->withArgs(function (string $spreadsheetId, string $range, array $values): bool {
-                // Проверяем fallback на "Нет"
-                $this->assertEquals('Нет', $values[14]);
+                // Проверяем fallback на "Нет" (индекс 29)
+                $this->assertEquals('Нет', $values[29]);
 
                 return true;
             });

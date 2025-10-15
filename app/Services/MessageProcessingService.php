@@ -238,17 +238,6 @@ class MessageProcessingService
                 return $response->getContent() ?: 'Произошла ошибка при выполнении функций.';
             }
 
-            // В новом API просто возвращаем результат с информацией о выполненных функциях
-            $toolSummary = '';
-            foreach ($toolOutputs as $toolOutput) {
-                $output = json_decode((string) $toolOutput['output'], true);
-                if ($output['success']) {
-                    $toolSummary .= "\n\n✅ ".$output['message'];
-                } else {
-                    $toolSummary .= "\n\n❌ Ошибка: ".$output['error'];
-                }
-            }
-
             Log::info('Tool outputs processed successfully', [
                 'iteration' => $iteration,
                 'conversation_id' => $user->conversation_id,
@@ -279,12 +268,14 @@ class MessageProcessingService
                 Log::info('Conversation ID reset after successful Google Sheets operation', [
                     'user_id' => $user->id,
                 ]);
+
+                // Возвращаем простое сообщение без деталей
+                return 'Задача обработана';
             }
 
             $content = $response->getContent() ?: 'Задача обработана.';
-            $parsedContent = $this->parseAIResponse($content);
 
-            return $parsedContent.$toolSummary;
+            return $this->parseAIResponse($content);
         }
 
         Log::warning('Reached maximum iterations without final response', [
