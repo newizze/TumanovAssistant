@@ -13,6 +13,10 @@ class AddRowToSheetsToolHandler
         private readonly AddRowToGoogleSheetsAction $addRowAction
     ) {}
 
+    /**
+     * @param  array<string, mixed>  $arguments
+     * @return array<string, mixed>
+     */
     public function handle(array $arguments): array
     {
         try {
@@ -21,7 +25,7 @@ class AddRowToSheetsToolHandler
             ]);
 
             // Валидация обязательных параметров
-            $requiredFields = ['task_title', 'task_description', 'expected_result', 'priority', 'task_type', 'executor', 'sender_name'];
+            $requiredFields = ['task_title', 'task_description', 'expected_result', 'priority', 'task_type', 'executor', 'sender_name', 'requires_verification'];
             foreach ($requiredFields as $field) {
                 if (empty($arguments[$field])) {
                     return [
@@ -32,8 +36,10 @@ class AddRowToSheetsToolHandler
             }
 
             // Получаем настройки из конфигурации
+            /** @var string|null $spreadsheetId */
             $spreadsheetId = config('project.google_sheets.default_spreadsheet_id');
-            $range = config('project.google_sheets.default_range');
+            /** @var string $range */
+            $range = config('project.google_sheets.default_range', 'Sheet1!A:Z');
 
             if (empty($spreadsheetId)) {
                 return [
@@ -46,7 +52,9 @@ class AddRowToSheetsToolHandler
             $taskId = strtoupper(substr(md5(uniqid()), 0, 8));
 
             // Находим исполнителя по short_code
+            /** @var array<int, array<string, string>> $executors */
             $executors = config('project.executors', []);
+            /** @var array<string, string>|null $executorInfo */
             $executorInfo = collect($executors)->firstWhere('short_code', $arguments['executor'] ?? '');
 
             // Подготавливаем данные для строки согласно структуре таблицы
@@ -65,6 +73,7 @@ class AddRowToSheetsToolHandler
                 $arguments['file_link_3'] ?? '', // Ссылка на файл отправителя3
                 '', // План исполнителя (не заполняем)
                 'Неразобранная', // Статус
+                $arguments['requires_verification'] ?? 'Нет', // Требуется ли проверка
             ];
 
             // Добавляем строку в таблицу
@@ -91,9 +100,11 @@ class AddRowToSheetsToolHandler
                 'updated_cells' => $result->updatedCells,
             ]);
 
+            $taskTitle = is_string($arguments['task_title']) ? $arguments['task_title'] : '';
+
             return [
                 'success' => true,
-                'message' => "Задача '{$arguments['task_title']}' успешно добавлена в таблицу",
+                'message' => "Задача '{$taskTitle}' успешно добавлена в таблицу",
                 'updated_cells' => $result->updatedCells,
                 'spreadsheet_id' => $spreadsheetId,
             ];

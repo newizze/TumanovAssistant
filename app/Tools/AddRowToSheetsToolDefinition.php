@@ -6,9 +6,13 @@ namespace App\Tools;
 
 class AddRowToSheetsToolDefinition
 {
+    /**
+     * @return array<string, mixed>
+     */
     public static function getDefinition(): array
     {
         // Получаем список исполнителей из конфигурации
+        /** @var array<int, array<string, string>> $executors */
         $executors = config('project.executors', []);
         $executorCodes = array_column($executors, 'short_code');
 
@@ -62,8 +66,14 @@ class AddRowToSheetsToolDefinition
                         'type' => 'string',
                         'description' => 'Ссылка на третий файл от отправителя (опционально)',
                     ],
+                    'requires_verification' => [
+                        'type' => 'string',
+                        'enum' => ['Да', 'Нет'],
+                        'description' => 'Требуется ли проверка задачи постановщиком перед приемкой. По умолчанию "Нет" (автоприемка). "Да" - только если явно указано требование проверки',
+                        'default' => 'Нет',
+                    ],
                 ],
-                'required' => ['task_title', 'task_description', 'expected_result', 'priority', 'task_type', 'executor', 'sender_name'],
+                'required' => ['task_title', 'task_description', 'expected_result', 'priority', 'task_type', 'executor', 'sender_name', 'requires_verification'],
             ],
         ];
     }
