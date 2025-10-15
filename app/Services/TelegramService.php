@@ -281,6 +281,61 @@ class TelegramService extends HttpService
         return $responseData['result']['message_id'];
     }
 
+    public function deleteMessage(int|string $chatId, int $messageId): bool
+    {
+        $this->ensureBotTokenConfigured();
+
+        $data = [
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+        ];
+
+        $httpRequest = new HttpRequestDto(
+            method: 'POST',
+            url: $this->getApiUrl('deleteMessage'),
+            data: $data,
+            timeout: 30,
+        );
+
+        Log::info('Deleting message', [
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+        ]);
+
+        $response = $this->request($httpRequest);
+
+        if (! $response->isOk()) {
+            Log::error('Failed to delete message', [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'status_code' => $response->statusCode,
+                'error' => $response->errorMessage,
+                'response_body' => $response->body,
+            ]);
+
+            return false;
+        }
+
+        $responseData = $response->getJsonData();
+
+        if (! $responseData['ok']) {
+            Log::error('Telegram API returned error for deleteMessage', [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'response' => $responseData,
+            ]);
+
+            return false;
+        }
+
+        Log::info('Message deleted successfully', [
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+        ]);
+
+        return true;
+    }
+
     public function getFile(string $fileId): ?TelegramFileDto
     {
         $this->ensureBotTokenConfigured();
