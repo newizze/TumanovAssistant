@@ -198,6 +198,9 @@ class TelegramController extends Controller
             return;
         }
 
+        // Отправляем мгновенное уведомление о получении запроса
+        $notification = $this->sendInitialNotification($chatId, 'Принял файлы ('.count($messages).' шт.), обрабатываю...');
+
         // Собираем все file_id из всех сообщений группы
         $allFileIds = $this->mediaGroupBufferService->getAllFilesFromMessages($messages);
 
@@ -207,8 +210,6 @@ class TelegramController extends Controller
         ]);
 
         if ($allFileIds !== []) {
-            $this->sendReply($chatId, 'Получил ваши файлы ('.count($allFileIds).' шт.). Скачиваю...');
-
             $fileLinks = $this->telegramFileService->processMessageFiles($allFileIds);
 
             if ($fileLinks !== []) {
@@ -217,17 +218,26 @@ class TelegramController extends Controller
                     'file_count' => count($fileLinks),
                 ]);
 
-                $this->sendReply(
-                    $chatId,
-                    'Файлы успешно обработаны: '.count($fileLinks).' шт.'
-                );
+                // Обновляем уведомление - файлы скачаны, создаем черновик
+                if ($notification) {
+                    $this->telegramService->editMessageText(
+                        $notification->chatId,
+                        $notification->messageId,
+                        $this->markdownService->prepareForTelegram('Файлы обработаны, создаю черновик задачи...'),
+                        'MarkdownV2'
+                    );
+                }
             } else {
                 Log::warning('Failed to process media group files', [
                     'media_group_id' => $firstMessage->mediaGroupId,
                     'file_ids' => $allFileIds,
                 ]);
 
-                $this->sendReply($chatId, 'Не удалось обработать файлы.');
+                if ($notification) {
+                    $this->updateNotification($notification, 'Не удалось обработать файлы.');
+                } else {
+                    $this->sendReply($chatId, 'Не удалось обработать файлы.');
+                }
 
                 return;
             }
@@ -239,9 +249,18 @@ class TelegramController extends Controller
                 $fileLinks
             );
 
-            $this->sendReply($chatId, $response);
+            // Обновляем уведомление финальным ответом
+            if ($notification) {
+                $this->updateNotification($notification, $response);
+            } else {
+                $this->sendReply($chatId, $response);
+            }
         } else {
-            $this->sendReply($chatId, 'Не удалось получить файлы из альбома.');
+            if ($notification) {
+                $this->updateNotification($notification, 'Не удалось получить файлы из альбома.');
+            } else {
+                $this->sendReply($chatId, 'Не удалось получить файлы из альбома.');
+            }
         }
     }
 
@@ -263,34 +282,36 @@ class TelegramController extends Controller
             return;
         }
 
+        // Отправляем мгновенное уведомление о получении запроса
+        $notification = $this->sendInitialNotification($message->chat->id, 'Принял задачу, создаю черновик...');
+
         // Обрабатываем файлы если есть
         $fileLinks = [];
         if ($message->hasFiles()) {
-            $this->sendReply($message->chat->id, 'Получил ваши файлы. Скачиваю...');
-
             $fileIds = $message->getAllFileIds();
             $fileLinks = $this->telegramFileService->processMessageFiles($fileIds);
 
-            if ($fileLinks !== []) {
-                Log::info('Files processed successfully', [
-                    'message_id' => $message->messageId,
-                    'user_id' => $message->from->id,
-                    'file_count' => count($fileLinks),
-                ]);
-
-                $this->sendReply(
-                    $message->chat->id,
-                    'Файлы успешно обработаны: '.count($fileLinks).' шт.'
-                );
-            } else {
+            if ($fileLinks === []) {
                 Log::warning('Failed to process files', [
                     'message_id' => $message->messageId,
                     'user_id' => $message->from->id,
                     'file_ids' => $fileIds,
                 ]);
 
-                $this->sendReply($message->chat->id, 'Не удалось обработать файлы.');
+                if ($notification) {
+                    $this->updateNotification($notification, 'Не удалось обработать файлы.');
+                } else {
+                    $this->sendReply($message->chat->id, 'Не удалось обработать файлы.');
+                }
+
+                return;
             }
+
+            Log::info('Files processed successfully', [
+                'message_id' => $message->messageId,
+                'user_id' => $message->from->id,
+                'file_count' => count($fileLinks),
+            ]);
         }
 
         // Если есть текст или файлы - обрабатываем через AI
@@ -302,9 +323,18 @@ class TelegramController extends Controller
                 $fileLinks
             );
 
-            $this->sendReply($message->chat->id, $response);
+            // Обновляем уведомление финальным ответом
+            if ($notification) {
+                $this->updateNotification($notification, $response);
+            } else {
+                $this->sendReply($message->chat->id, $response);
+            }
         } else {
-            $this->sendReply($message->chat->id, 'Не удалось обработать ваше сообщение.');
+            if ($notification) {
+                $this->updateNotification($notification, 'Не удалось обработать ваше сообщение.');
+            } else {
+                $this->sendReply($message->chat->id, 'Не удалось обработать ваше сообщение.');
+            }
         }
     }
 
@@ -317,13 +347,18 @@ class TelegramController extends Controller
             'voice_file_id' => $message->voice->fileId,
         ]);
 
-        $this->sendReply($message->chat->id, 'Получил ваше голосовое сообщение. Обрабатываю...');
+        // Отправляем мгновенное уведомление о получении запроса
+        $notification = $this->sendInitialNotification($message->chat->id, 'Получил голосовое сообщение, распознаю...');
 
         try {
             $fileDto = $this->telegramService->getFile($message->voice->fileId);
 
             if (! $fileDto instanceof \App\DTOs\Telegram\TelegramFileDto) {
-                $this->sendReply($message->chat->id, 'Ошибка: не удалось получить информацию о файле.');
+                if ($notification) {
+                    $this->updateNotification($notification, 'Ошибка: не удалось получить информацию о файле.');
+                } else {
+                    $this->sendReply($message->chat->id, 'Ошибка: не удалось получить информацию о файле.');
+                }
 
                 return;
             }
@@ -331,7 +366,11 @@ class TelegramController extends Controller
             $audioContent = $this->telegramService->downloadFile($fileDto);
 
             if (! $audioContent) {
-                $this->sendReply($message->chat->id, 'Ошибка: не удалось скачать аудиофайл.');
+                if ($notification) {
+                    $this->updateNotification($notification, 'Ошибка: не удалось скачать аудиофайл.');
+                } else {
+                    $this->sendReply($message->chat->id, 'Ошибка: не удалось скачать аудиофайл.');
+                }
 
                 return;
             }
@@ -343,14 +382,34 @@ class TelegramController extends Controller
             );
 
             if (! $transcription->hasText()) {
-                $this->sendReply($message->chat->id, 'Не удалось распознать текст из голосового сообщения.');
+                if ($notification) {
+                    $this->updateNotification($notification, 'Не удалось распознать текст из голосового сообщения.');
+                } else {
+                    $this->sendReply($message->chat->id, 'Не удалось распознать текст из голосового сообщения.');
+                }
 
                 return;
             }
 
+            // Обновляем уведомление на этап обработки AI
+            if ($notification) {
+                $this->telegramService->editMessageText(
+                    $notification->chatId,
+                    $notification->messageId,
+                    $this->markdownService->prepareForTelegram('Текст распознан, создаю черновик задачи...'),
+                    'MarkdownV2'
+                );
+            }
+
             // Обрабатываем распознанный текст через AI
             $response = $this->messageProcessingService->processMessage($transcription->text, $user);
-            $this->sendReply($message->chat->id, $response);
+
+            // Обновляем уведомление финальным ответом
+            if ($notification) {
+                $this->updateNotification($notification, $response);
+            } else {
+                $this->sendReply($message->chat->id, $response);
+            }
 
             Log::info('Voice message processed successfully', [
                 'message_id' => $message->messageId,
@@ -366,7 +425,11 @@ class TelegramController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            $this->sendReply($message->chat->id, 'Произошла ошибка при обработке голосового сообщения. Попробуйте еще раз.');
+            if ($notification) {
+                $this->updateNotification($notification, 'Произошла ошибка при обработке голосового сообщения. Попробуйте еще раз.');
+            } else {
+                $this->sendReply($message->chat->id, 'Произошла ошибка при обработке голосового сообщения. Попробуйте еще раз.');
+            }
         }
     }
 
@@ -506,6 +569,80 @@ class TelegramController extends Controller
                 'chat_id' => $chatId,
                 'text_length' => strlen($text),
             ]);
+        }
+    }
+
+    /**
+     * Отправляет начальное уведомление пользователю
+     */
+    private function sendInitialNotification(int $chatId, string $text): ?\App\DTOs\Telegram\TelegramNotificationDto
+    {
+        $safeText = $this->markdownService->prepareForTelegram($text);
+
+        $messageDto = new TelegramSendMessageDto(
+            chatId: $chatId,
+            text: $safeText,
+            parseMode: 'MarkdownV2',
+        );
+
+        $messageId = $this->telegramService->sendMessageAndGetId($messageDto);
+
+        if ($messageId === null) {
+            Log::error('Failed to send initial notification', [
+                'chat_id' => $chatId,
+                'text' => $text,
+            ]);
+
+            return null;
+        }
+
+        Log::info('Initial notification sent', [
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+        ]);
+
+        return \App\DTOs\Telegram\TelegramNotificationDto::create($chatId, $messageId, $text);
+    }
+
+    /**
+     * Обновляет временное уведомление финальным сообщением
+     */
+    private function updateNotification(\App\DTOs\Telegram\TelegramNotificationDto $notification, string $finalText): void
+    {
+        // Очищаем служебные маркеры перед отправкой
+        $cleanText = str_replace('<!-- NEED_CONFIRM -->', '', $finalText);
+
+        // Проверяем, содержит ли сообщение черновик задачи с запросом подтверждения
+        if ($this->isDraftConfirmationMessage($finalText)) {
+            // Для сообщений с подтверждением - удаляем временное уведомление и отправляем новое с кнопками
+            $this->telegramService->editMessageText(
+                $notification->chatId,
+                $notification->messageId,
+                $this->markdownService->prepareForTelegram('Обработка завершена'),
+                'MarkdownV2'
+            );
+
+            $this->telegramService->sendMarkdownMessageWithThreeButtons($notification->chatId, $cleanText);
+        } else {
+            // Для обычных сообщений - редактируем существующее
+            $safeText = $this->markdownService->prepareForTelegram($cleanText);
+
+            $result = $this->telegramService->editMessageText(
+                $notification->chatId,
+                $notification->messageId,
+                $safeText,
+                'MarkdownV2'
+            );
+
+            if ($result === null) {
+                Log::error('Failed to update notification, sending new message', [
+                    'chat_id' => $notification->chatId,
+                    'message_id' => $notification->messageId,
+                ]);
+
+                // Если редактирование не удалось, отправляем новое сообщение
+                $this->sendReply($notification->chatId, $finalText);
+            }
         }
     }
 

@@ -34,6 +34,13 @@ class TelegramService extends HttpService
 
     public function sendMessage(TelegramSendMessageDto $messageDto): bool
     {
+        $messageId = $this->sendMessageAndGetId($messageDto);
+
+        return $messageId !== null;
+    }
+
+    public function sendMessageAndGetId(TelegramSendMessageDto $messageDto): ?int
+    {
         $this->ensureBotTokenConfigured();
 
         $httpRequest = new HttpRequestDto(
@@ -58,14 +65,26 @@ class TelegramService extends HttpService
                 'response_body' => $response->body,
             ]);
 
-            return false;
+            return null;
+        }
+
+        $responseData = $response->getJsonData();
+
+        if (! $responseData['ok'] || ! isset($responseData['result']['message_id'])) {
+            Log::error('Invalid Telegram API response for sendMessage', [
+                'chat_id' => $messageDto->chatId,
+                'response' => $responseData,
+            ]);
+
+            return null;
         }
 
         Log::info('Telegram message sent successfully', [
             'chat_id' => $messageDto->chatId,
+            'message_id' => $responseData['result']['message_id'],
         ]);
 
-        return true;
+        return $responseData['result']['message_id'];
     }
 
     public function sendMarkdownMessage(int|string $chatId, string $text): bool
@@ -194,6 +213,72 @@ class TelegramService extends HttpService
         }
 
         return true;
+    }
+
+    public function editMessageText(int|string $chatId, int $messageId, string $text, ?string $parseMode = null, ?TelegramInlineKeyboardDto $replyMarkup = null): ?int
+    {
+        $this->ensureBotTokenConfigured();
+
+        $data = [
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'text' => $text,
+        ];
+
+        if ($parseMode !== null) {
+            $data['parse_mode'] = $parseMode;
+        }
+
+        if ($replyMarkup instanceof \App\DTOs\Telegram\TelegramInlineKeyboardDto) {
+            $data['reply_markup'] = $replyMarkup->toArray();
+        }
+
+        $httpRequest = new HttpRequestDto(
+            method: 'POST',
+            url: $this->getApiUrl('editMessageText'),
+            data: $data,
+            timeout: 30,
+        );
+
+        Log::info('Editing message text', [
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'text_length' => strlen($text),
+            'parse_mode' => $parseMode,
+        ]);
+
+        $response = $this->request($httpRequest);
+
+        if (! $response->isOk()) {
+            Log::error('Failed to edit message text', [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'status_code' => $response->statusCode,
+                'error' => $response->errorMessage,
+                'response_body' => $response->body,
+            ]);
+
+            return null;
+        }
+
+        $responseData = $response->getJsonData();
+
+        if (! $responseData['ok'] || ! isset($responseData['result']['message_id'])) {
+            Log::error('Invalid Telegram API response for editMessageText', [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'response' => $responseData,
+            ]);
+
+            return null;
+        }
+
+        Log::info('Message text edited successfully', [
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+        ]);
+
+        return $responseData['result']['message_id'];
     }
 
     public function getFile(string $fileId): ?TelegramFileDto
