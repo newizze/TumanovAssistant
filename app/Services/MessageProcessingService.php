@@ -163,7 +163,7 @@ class MessageProcessingService
                     }
                 }
 
-                return ($content ?: 'Задача обработана.').$toolSummary;
+                return ($content ?: 'Задача обработана.');
             }
         }
 
