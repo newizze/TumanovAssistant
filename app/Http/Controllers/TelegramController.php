@@ -8,6 +8,7 @@ use App\DTOs\Telegram\TelegramSendMessageDto;
 use App\DTOs\Telegram\TelegramWebhookDto;
 use App\Models\User;
 use App\Services\MarkdownService;
+use App\Services\MediaGroupBufferService;
 use App\Services\MessageProcessingService;
 use App\Services\OpenAIResponseService;
 use App\Services\TelegramFileService;
@@ -25,6 +26,7 @@ class TelegramController extends Controller
         private readonly MessageProcessingService $messageProcessingService,
         private readonly TelegramFileService $telegramFileService,
         private readonly MarkdownService $markdownService,
+        private readonly MediaGroupBufferService $mediaGroupBufferService,
     ) {}
 
     public function webhook(Request $request): JsonResponse
@@ -98,6 +100,8 @@ class TelegramController extends Controller
             'has_document' => $message->hasDocument(),
             'has_files' => $message->hasFiles(),
             'is_private' => $message->isPrivateChat(),
+            'is_media_group' => $message->isPartOfMediaGroup(),
+            'media_group_id' => $message->mediaGroupId,
         ]);
 
         if (! $message->isPrivateChat()) {
@@ -124,6 +128,32 @@ class TelegramController extends Controller
             return;
         }
 
+        // Если сообщение часть медиа-группы (альбома), буферизуем его
+        if ($message->isPartOfMediaGroup()) {
+            $groupedMessages = $this->mediaGroupBufferService->addMessage($message);
+
+            if ($groupedMessages === null) {
+                // Группа еще не завершена, ждем остальные сообщения
+                Log::info('Message added to media group buffer, waiting for more', [
+                    'message_id' => $message->messageId,
+                    'media_group_id' => $message->mediaGroupId,
+                ]);
+
+                return;
+            }
+
+            // Группа завершена, обрабатываем все сообщения вместе
+            Log::info('Media group completed, processing all messages', [
+                'media_group_id' => $message->mediaGroupId,
+                'messages_count' => count($groupedMessages),
+            ]);
+
+            $this->processMediaGroupMessages($groupedMessages, $user);
+
+            return;
+        }
+
+        // Обычное сообщение (не часть группы)
         if ($message->hasText() || $message->hasFiles()) {
             $this->processTextMessage($message, $user);
         } elseif ($message->hasVoice()) {
@@ -135,6 +165,83 @@ class TelegramController extends Controller
             ]);
 
             $this->sendReply($message->chat->id, 'Извините, я поддерживаю только текстовые сообщения, фото, документы и голосовые сообщения.');
+        }
+    }
+
+    /**
+     * Обрабатывает группу сообщений медиа-группы (альбома) с несколькими файлами
+     *
+     * @param  array<\App\DTOs\Telegram\TelegramMessageDto>  $messages
+     */
+    private function processMediaGroupMessages(array $messages, User $user): void
+    {
+        if ($messages === []) {
+            return;
+        }
+
+        $firstMessage = $messages[0];
+        $chatId = $firstMessage->chat->id;
+
+        Log::info('Processing media group messages', [
+            'messages_count' => count($messages),
+            'media_group_id' => $firstMessage->mediaGroupId,
+            'user_id' => $user->id,
+        ]);
+
+        // Получаем текст из сообщений (обычно только первое имеет caption)
+        $messageText = $this->mediaGroupBufferService->getTextFromMessages($messages);
+
+        // Проверяем команду /restart
+        if ($messageText === '/restart') {
+            $this->handleRestartCommand($firstMessage, $user);
+
+            return;
+        }
+
+        // Собираем все file_id из всех сообщений группы
+        $allFileIds = $this->mediaGroupBufferService->getAllFilesFromMessages($messages);
+
+        Log::info('Media group files collected', [
+            'file_ids_count' => count($allFileIds),
+            'file_ids' => $allFileIds,
+        ]);
+
+        if ($allFileIds !== []) {
+            $this->sendReply($chatId, 'Получил ваши файлы ('.count($allFileIds).' шт.). Скачиваю...');
+
+            $fileLinks = $this->telegramFileService->processMessageFiles($allFileIds);
+
+            if ($fileLinks !== []) {
+                Log::info('Media group files processed successfully', [
+                    'media_group_id' => $firstMessage->mediaGroupId,
+                    'file_count' => count($fileLinks),
+                ]);
+
+                $this->sendReply(
+                    $chatId,
+                    'Файлы успешно обработаны: '.count($fileLinks).' шт.'
+                );
+            } else {
+                Log::warning('Failed to process media group files', [
+                    'media_group_id' => $firstMessage->mediaGroupId,
+                    'file_ids' => $allFileIds,
+                ]);
+
+                $this->sendReply($chatId, 'Не удалось обработать файлы.');
+
+                return;
+            }
+
+            // Обрабатываем через AI с файлами
+            $response = $this->messageProcessingService->processMessage(
+                $messageText ?? '',
+                $user,
+                $fileLinks
+            );
+
+            $this->sendReply($chatId, $response);
+        } else {
+            $this->sendReply($chatId, 'Не удалось получить файлы из альбома.');
         }
     }
 

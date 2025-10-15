@@ -31,10 +31,11 @@ class MessageProcessingService
             // Подготавливаем информацию о файлах для промпта
             $fileInfo = '';
             if ($fileLinks !== []) {
-                $fileInfo = "\n\nПрикрепленные файлы:\n";
+                $fileInfo = "\n\n📎 Прикрепленные файлы (".count($fileLinks)." шт.):\n";
                 foreach ($fileLinks as $index => $fileLink) {
-                    $fileInfo .= ($index + 1).'. '.$fileLink."\n";
+                    $fileInfo .= 'Файл '.($index + 1).': '.$fileLink."\n";
                 }
+                $fileInfo .= "\n⚠️ ВАЖНО: При создании задачи эти ссылки ОБЯЗАТЕЛЬНО должны быть переданы в параметры file_link_1, file_link_2, file_link_3 соответственно!";
             }
 
             // Получаем список исполнителей из Google Sheets
@@ -213,6 +214,7 @@ class MessageProcessingService
                 ]);
 
                 $content = $response->getContent() ?: 'Задача обработана.';
+
                 return $this->parseAIResponse($content);
             }
 
@@ -281,6 +283,7 @@ class MessageProcessingService
 
             $content = $response->getContent() ?: 'Задача обработана.';
             $parsedContent = $this->parseAIResponse($content);
+
             return $parsedContent.$toolSummary;
         }
 
@@ -291,6 +294,7 @@ class MessageProcessingService
         ]);
 
         $content = $lastResponse?->getContent() ?: 'Превышено максимальное количество итераций. Задача может быть не полностью обработана.';
+
         return $this->parseAIResponse($content);
     }
 

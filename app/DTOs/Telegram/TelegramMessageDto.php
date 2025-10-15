@@ -7,8 +7,8 @@ namespace App\DTOs\Telegram;
 final readonly class TelegramMessageDto
 {
     /**
-     * @param array<TelegramPhotoSizeDto>|null $photo
-     * @param array<mixed>|null $entities
+     * @param  array<TelegramPhotoSizeDto>|null  $photo
+     * @param  array<mixed>|null  $entities
      */
     public function __construct(
         public int $messageId,
@@ -21,6 +21,7 @@ final readonly class TelegramMessageDto
         public ?array $photo = null,
         public ?TelegramDocumentDto $document = null,
         public ?string $caption = null,
+        public ?string $mediaGroupId = null,
     ) {}
 
     public static function fromArray(array $data): self
@@ -44,7 +45,7 @@ final readonly class TelegramMessageDto
             entities: $data['entities'] ?? null,
             photo: $photo,
             document: isset($data['document']) ? TelegramDocumentDto::fromArray($data['document']) : null,
-            caption: $data['caption'] ?? null,
+            caption: $data['caption'] ?? null, mediaGroupId: $data['media_group_id'] ?? null,
         );
     }
 
@@ -132,5 +133,13 @@ final readonly class TelegramMessageDto
     public function getMessageText(): ?string
     {
         return $this->text ?? $this->caption;
+    }
+
+    /**
+     * Проверяет, является ли сообщение частью медиа-группы (альбома)
+     */
+    public function isPartOfMediaGroup(): bool
+    {
+        return $this->mediaGroupId !== null;
     }
 }
