@@ -173,7 +173,7 @@ class MessageProcessingService
                     }
                 }
 
-                return $content ?: 'Задача обработана.';
+                return $content ?: '💼 Задача поставлена 🔔 Ответственный уведомлен';
             }
         }
 
@@ -224,7 +224,7 @@ class MessageProcessingService
                     'response_content' => $response->getContent(),
                 ]);
 
-                $content = $response->getContent() ?: 'Задача обработана.';
+                $content = $response->getContent() ?: '💼 Задача поставлена 🔔 Ответственный уведомлен';
 
                 return $this->parseAIResponse($content);
             }
@@ -281,10 +281,10 @@ class MessageProcessingService
                 ]);
 
                 // Возвращаем простое сообщение без деталей
-                return 'Задача обработана';
+                return '💼 Задача поставлена 🔔 Ответственный уведомлен';
             }
 
-            $content = $response->getContent() ?: 'Задача обработана.';
+            $content = $response->getContent() ?: '💼 Задача поставлена 🔔 Ответственный уведомлен';
 
             return $this->parseAIResponse($content);
         }

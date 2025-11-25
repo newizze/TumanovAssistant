@@ -120,7 +120,7 @@ class AddRowToSheetsToolHandler
 
             return [
                 'success' => true,
-                'message' => 'Задача обработана',
+                'message' => '💼 Задача поставлена 🔔 Ответственный уведомлен',
                 'updated_cells' => $result->updatedCells,
                 'spreadsheet_id' => $spreadsheetId,
             ];

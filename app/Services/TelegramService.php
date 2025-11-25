@@ -125,7 +125,10 @@ class TelegramService extends HttpService
         );
 
         $keyboard = new TelegramInlineKeyboardDto([
-            [$cancelButton, $newTaskButton, $sendWithoutAutoAcceptButton, $sendButton],
+            [$cancelButton],
+            [$newTaskButton],
+            [$sendWithoutAutoAcceptButton],
+            [$sendButton],
         ]);
 
         $messageDto = new TelegramSendMessageDto(

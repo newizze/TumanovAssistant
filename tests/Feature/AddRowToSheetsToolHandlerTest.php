@@ -81,7 +81,7 @@ class AddRowToSheetsToolHandlerTest extends TestCase
         $result = $this->handler->handle($arguments);
 
         $this->assertTrue($result['success']);
-        $this->assertEquals('Задача обработана', $result['message']);
+        $this->assertEquals('💼 Задача поставлена 🔔 Ответственный уведомлен', $result['message']);
     }
 
     public function test_handle_adds_task_with_verification_required(): void
