@@ -41,6 +41,52 @@ class ExecutorService
     }
 
     /**
+     * Находит исполнителя по telegram username из списка утвержденных исполнителей
+     *
+     * @param  array<int, array<string, string>>|null  $executors
+     * @return array<string, string>|null
+     */
+    public function findExecutorByTelegramUsername(?string $username, ?array $executors = null): ?array
+    {
+        if ($username === null) {
+            return null;
+        }
+
+        $normalizedUsername = $this->normalizeTelegramUsername($username);
+
+        if ($normalizedUsername === '') {
+            return null;
+        }
+
+        $approvedExecutors = $executors ?? $this->getApprovedExecutors();
+
+        foreach ($approvedExecutors as $executor) {
+            $executorUsername = $this->normalizeTelegramUsername($executor['tg_username'] ?? null);
+
+            if ($executorUsername !== '' && $executorUsername === $normalizedUsername) {
+                return $executor;
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeTelegramUsername(?string $username): string
+    {
+        if ($username === null) {
+            return '';
+        }
+
+        $normalized = trim($username);
+
+        if ($normalized === '') {
+            return '';
+        }
+
+        return ltrim(strtolower($normalized), '@');
+    }
+
+    /**
      * @return array<int, array<string, string>>
      */
     private function fetchExecutorsFromSheet(): array
@@ -114,6 +160,4 @@ class ExecutorService
             throw new \Exception("Failed to fetch executors from Google Sheets: {$e->getMessage()}", $e->getCode(), $e);
         }
     }
-
-
 }

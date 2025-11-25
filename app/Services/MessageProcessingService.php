@@ -19,13 +19,14 @@ class MessageProcessingService
         private readonly ExecutorService $executorService
     ) {}
 
-    public function processMessage(string $messageText, User $user, array $fileLinks = []): string
+    public function processMessage(string $messageText, User $user, array $fileLinks = [], ?bool $requiresVerification = null): string
     {
         try {
             Log::info('Processing message with AI', [
                 'user_id' => $user->id,
                 'message_length' => strlen($messageText),
                 'file_links_count' => count($fileLinks),
+                'requires_verification' => $requiresVerification,
             ]);
 
             // Подготавливаем информацию о файлах для промпта
@@ -40,6 +41,7 @@ class MessageProcessingService
 
             // Получаем список исполнителей из Google Sheets
             $executors = $this->executorService->getApprovedExecutors();
+            config(['project.executors' => $executors]);
             $executorsList = '';
             foreach ($executors as $executor) {
                 $executorsList .= "• Код: {$executor['short_code']} | ФИО: {$executor['full_name']}";
@@ -52,8 +54,15 @@ class MessageProcessingService
                 $executorsList .= "\n";
             }
 
+            $senderIdentifier = $this->determineSenderIdentifier($user, $executors);
+
+            if (empty($senderIdentifier)) {
+                throw new \RuntimeException('Failed to determine sender identifier for user: '.$user->id);
+            }
+
             // Получаем определение инструмента для промпта
-            $toolDefinition = json_encode(AddRowToSheetsToolDefinition::getDefinition(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            $toolDefinitionArray = AddRowToSheetsToolDefinition::getDefinition($senderIdentifier);
+            $toolDefinition = json_encode($toolDefinitionArray, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
             // Получаем промпт из XML файла
             $systemPrompt = $this->promptService->loadPrompt('task_creation', [
@@ -62,6 +71,7 @@ class MessageProcessingService
                 'user_message' => $messageText.$fileInfo,
                 'executors_list' => trim($executorsList),
                 'telegram_username' => $user->username ?: 'unknown',
+                'sender_identifier' => $senderIdentifier,
                 'tool_definition' => $toolDefinition,
             ]);
 
@@ -71,11 +81,11 @@ class MessageProcessingService
                 model: 'gpt-4.1',
                 input: $fullMessage,
                 instructions: $systemPrompt,
-                tools: [AddRowToSheetsToolDefinition::getDefinition()],
+                tools: [$toolDefinitionArray],
             );
 
             // Выполняем цикличные запросы до получения финального ответа
-            $finalResponse = $this->processWithToolCalls($requestDto, $user);
+            $finalResponse = $this->processWithToolCalls($requestDto, $user, $senderIdentifier, requiresVerification: $requiresVerification);
 
             Log::info('Message processed successfully', [
                 'user_id' => $user->id,
@@ -163,18 +173,19 @@ class MessageProcessingService
                     }
                 }
 
-                return ($content ?: 'Задача обработана.');
+                return $content ?: 'Задача обработана.';
             }
         }
 
         return $content ?: 'Ответ получен, но содержимое отсутствует.';
     }
 
-    private function processWithToolCalls(ResponseRequestDto $requestDto, User $user, int $maxIterations = 5): string
+    private function processWithToolCalls(ResponseRequestDto $requestDto, User $user, ?string $senderIdentifier = null, int $maxIterations = 5, ?bool $requiresVerification = null): string
     {
         $currentRequest = $requestDto;
         $iteration = 0;
         $lastResponse = null;
+        $resolvedSender = $senderIdentifier ?? $this->determineSenderIdentifier($user);
 
         while ($iteration < $maxIterations) {
             $iteration++;
@@ -226,7 +237,7 @@ class MessageProcessingService
                 'function_calls' => $functionCalls,
             ]);
 
-            $toolOutputs = $this->executeFunctionCalls($functionCalls);
+            $toolOutputs = $this->executeFunctionCalls($functionCalls, $user, $resolvedSender, $requiresVerification);
 
             if ($toolOutputs === []) {
                 // Функции не выполнились - возвращаем то что есть
@@ -289,7 +300,7 @@ class MessageProcessingService
         return $this->parseAIResponse($content);
     }
 
-    private function executeFunctionCalls(array $functionCalls): array
+    private function executeFunctionCalls(array $functionCalls, User $user, string $senderIdentifier, ?bool $requiresVerification = null): array
     {
         $toolOutputs = [];
 
@@ -311,6 +322,31 @@ class MessageProcessingService
                 // Если arguments это строка, декодируем JSON
                 if (is_string($arguments)) {
                     $arguments = json_decode($arguments, true);
+                }
+
+                $originalSender = $arguments['sender_name'] ?? null;
+                $arguments['sender_name'] = $senderIdentifier;
+
+                // Переопределяем requires_verification если он указан через кнопку
+                if ($requiresVerification !== null) {
+                    $originalRequiresVerification = $arguments['requires_verification'] ?? null;
+                    $arguments['requires_verification'] = $requiresVerification ? 'Да' : 'Нет';
+
+                    Log::info('Requires verification overridden for tool call', [
+                        'call_id' => $callId,
+                        'original_requires_verification' => $originalRequiresVerification,
+                        'resolved_requires_verification' => $arguments['requires_verification'],
+                        'user_id' => $user->id,
+                    ]);
+                }
+
+                if ($originalSender !== $senderIdentifier) {
+                    Log::info('Sender overridden for tool call', [
+                        'call_id' => $callId,
+                        'original_sender' => $originalSender,
+                        'resolved_sender' => $senderIdentifier,
+                        'user_id' => $user->id,
+                    ]);
                 }
 
                 Log::info('Executing tool handler with arguments', [
@@ -350,6 +386,58 @@ class MessageProcessingService
         ]);
 
         return $toolOutputs;
+    }
+
+    /**
+     * Возвращает идентификатор отправителя (код исполнителя или fallback с именем/юзернеймом)
+     *
+     * @param  array<int, array<string, string>>|null  $executors
+     */
+    private function determineSenderIdentifier(User $user, ?array $executors = null): string
+    {
+        $executors ??= $this->executorService->getApprovedExecutors();
+
+        $matchedExecutor = $this->executorService->findExecutorByTelegramUsername($user->username, $executors);
+
+        if ($matchedExecutor !== null && ! empty($matchedExecutor['short_code'])) {
+            Log::info('Sender mapped to executor short code', [
+                'user_id' => $user->id,
+                'telegram_username' => $user->username,
+                'sender_short_code' => $matchedExecutor['short_code'],
+            ]);
+
+            return $matchedExecutor['short_code'];
+        }
+
+        $fallback = $this->formatFallbackSenderName($user);
+
+        Log::info('Sender fallback used', [
+            'user_id' => $user->id,
+            'telegram_username' => $user->username,
+            'fallback_sender' => $fallback,
+        ]);
+
+        return $fallback;
+    }
+
+    private function formatFallbackSenderName(User $user): string
+    {
+        $name = trim((string) ($user->name ?? ''));
+        $username = $user->username ? '@'.ltrim($user->username, '@') : null;
+
+        if ($name !== '' && $username !== null) {
+            return sprintf('%s (%s)', $name, $username);
+        }
+
+        if ($name !== '') {
+            return $name;
+        }
+
+        if ($username !== null) {
+            return $username;
+        }
+
+        return 'Неизвестный отправитель';
     }
 
     private function parseAIResponse(string $response): string

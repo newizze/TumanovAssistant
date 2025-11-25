@@ -4,17 +4,31 @@ declare(strict_types=1);
 
 namespace App\Tools;
 
+use InvalidArgumentException;
+
 class AddRowToSheetsToolDefinition
 {
     /**
      * @return array<string, mixed>
      */
-    public static function getDefinition(): array
+    public static function getDefinition(?string $forcedSender = null): array
     {
         // Получаем список исполнителей из конфигурации
         /** @var array<int, array<string, string>> $executors */
         $executors = config('project.executors', []);
         $executorCodes = array_column($executors, 'short_code');
+
+        // ВАЖНО: sender_name всегда должен быть зафиксирован системой, AI не должен его выбирать
+        if (empty($forcedSender)) {
+            throw new InvalidArgumentException('Sender identifier must be provided to tool definition');
+        }
+
+        $senderProperty = [
+            'type' => 'string',
+            'description' => 'Код отправителя задачи (определяется автоматически системой)',
+            'enum' => [$forcedSender],
+            'const' => $forcedSender, // JSON Schema: единственно возможное значение
+        ];
 
         return [
             'type' => 'function',
@@ -50,10 +64,7 @@ class AddRowToSheetsToolDefinition
                         'enum' => $executorCodes,
                         'description' => 'Код Исполнителя задачи (выбери подходящего из списка), например ИТ ВУ',
                     ],
-                    'sender_name' => [
-                        'type' => 'string',
-                        'description' => 'Код Отправителя задачи (выбери подходящего из списка), например ГД НТ',
-                    ],
+                    'sender_name' => $senderProperty,
                     'file_link_1' => [
                         'type' => 'string',
                         'description' => 'Ссылка на первый файл от отправителя (опционально)',

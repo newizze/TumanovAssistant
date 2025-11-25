@@ -114,13 +114,18 @@ class TelegramService extends HttpService
             callbackData: 'task_new'
         );
 
+        $sendWithoutAutoAcceptButton = new TelegramInlineKeyboardButtonDto(
+            text: 'Отправить без автоприёмки',
+            callbackData: 'confirm_yes_no_auto_accept'
+        );
+
         $sendButton = new TelegramInlineKeyboardButtonDto(
             text: 'Отправить',
             callbackData: 'confirm_yes'
         );
 
         $keyboard = new TelegramInlineKeyboardDto([
-            [$cancelButton, $newTaskButton, $sendButton],
+            [$cancelButton, $newTaskButton, $sendWithoutAutoAcceptButton, $sendButton],
         ]);
 
         $messageDto = new TelegramSendMessageDto(

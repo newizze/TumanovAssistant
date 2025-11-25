@@ -455,18 +455,20 @@ class TelegramController extends Controller
 
         // Обрабатываем различные callback данные
         match ($callbackQuery->data) {
-            'confirm_yes' => $this->handleTaskConfirmation($callbackQuery, $user),
+            'confirm_yes' => $this->handleTaskConfirmation($callbackQuery, $user, requiresVerification: false),
+            'confirm_yes_no_auto_accept' => $this->handleTaskConfirmation($callbackQuery, $user, requiresVerification: true),
             'task_cancel' => $this->handleTaskCancel($callbackQuery, $user),
             'task_new' => $this->handleNewTask($callbackQuery, $user),
             default => Log::warning('Unknown callback data', ['data' => $callbackQuery->data])
         };
     }
 
-    private function handleTaskConfirmation($callbackQuery, User $user): void
+    private function handleTaskConfirmation($callbackQuery, User $user, bool $requiresVerification = false): void
     {
         Log::info('Processing task confirmation', [
             'callback_id' => $callbackQuery->id,
             'user_id' => $callbackQuery->from->id,
+            'requires_verification' => $requiresVerification,
         ]);
 
         // Сначала отвечаем на callback query чтобы убрать загрузку
@@ -481,8 +483,8 @@ class TelegramController extends Controller
             $callbackQuery->message->messageId
         );
 
-        // Отправляем "Да" как текстовое сообщение для обработки AI
-        $response = $this->messageProcessingService->processMessage('Да', $user);
+        // Отправляем "Да" как текстовое сообщение для обработки AI с указанием requires_verification
+        $response = $this->messageProcessingService->processMessage('Да', $user, [], $requiresVerification);
 
         // Удаляем временное уведомление
         if ($notification) {
@@ -498,6 +500,7 @@ class TelegramController extends Controller
         Log::info('Task confirmation processed', [
             'callback_id' => $callbackQuery->id,
             'user_id' => $callbackQuery->from->id,
+            'requires_verification' => $requiresVerification,
         ]);
     }
 
