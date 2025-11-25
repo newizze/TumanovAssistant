@@ -469,7 +469,17 @@ class MessageProcessingService
             if ($this->currentFileLinks !== [] && isset($decoded['need_confirm']) && $decoded['need_confirm'] === true) {
                 $fileSection = "\n\n📎 **Прикрепленные файлы** (".count($this->currentFileLinks)." шт.):\n";
                 foreach ($this->currentFileLinks as $index => $fileLink) {
-                    $fileSection .= ($index + 1).". ".$fileLink."\n";
+                    // Проверяем расширение файла для определения типа
+                    $extension = strtolower(pathinfo($fileLink, PATHINFO_EXTENSION));
+                    $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+
+                    if (in_array($extension, $imageExtensions)) {
+                        // Для изображений используем markdown синтаксис ![alt](url)
+                        $fileSection .= "\n![Файл ".($index + 1)."](".$fileLink.")\n";
+                    } else {
+                        // Для других файлов просто ссылка
+                        $fileSection .= ($index + 1).". ".$fileLink."\n";
+                    }
                 }
                 $content .= $fileSection;
 

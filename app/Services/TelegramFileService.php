@@ -135,7 +135,7 @@ class TelegramFileService
         }
 
         // Генерируем уникальное имя файла
-        $timestamp = now()->format('Y-m-d_H-i-s');
+        $timestamp = now()->format('Y-m-d-H-i-s');
         $uniqueId = Str::substr($fileDto->fileUniqueId, 0, 8);
 
         return "{$timestamp}_{$uniqueId}.{$extension}";
