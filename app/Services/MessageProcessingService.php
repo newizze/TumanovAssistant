@@ -12,6 +12,11 @@ use Illuminate\Support\Facades\Log;
 
 class MessageProcessingService
 {
+    /**
+     * @var array<int, string>
+     */
+    private array $currentFileLinks = [];
+
     public function __construct(
         private readonly OpenAIResponseService $openAIService,
         private readonly PromptService $promptService,
@@ -22,6 +27,9 @@ class MessageProcessingService
     public function processMessage(string $messageText, User $user, array $fileLinks = [], ?bool $requiresVerification = null): string
     {
         try {
+            // Сохраняем файлы для последующего использования в ответе
+            $this->currentFileLinks = $fileLinks;
+
             Log::info('Processing message with AI', [
                 'user_id' => $user->id,
                 'message_length' => strlen($messageText),
@@ -455,12 +463,28 @@ class MessageProcessingService
                 'content_length' => strlen((string) $decoded['content']),
             ]);
 
-            // Возвращаем контент, а информацию о need_confirm передаем через специальный формат
-            if (isset($decoded['need_confirm']) && $decoded['need_confirm'] === true) {
-                return $decoded['content']."\n<!-- NEED_CONFIRM -->";
+            $content = $decoded['content'];
+
+            // Добавляем информацию о файлах только в черновик задачи (когда need_confirm = true)
+            if ($this->currentFileLinks !== [] && isset($decoded['need_confirm']) && $decoded['need_confirm'] === true) {
+                $fileSection = "\n\n📎 **Прикрепленные файлы** (".count($this->currentFileLinks)." шт.):\n";
+                foreach ($this->currentFileLinks as $index => $fileLink) {
+                    $fileSection .= ($index + 1).". ".$fileLink."\n";
+                }
+                $content .= $fileSection;
+
+                Log::info('Files added to draft task', [
+                    'files_count' => count($this->currentFileLinks),
+                ]);
             }
 
-            return $decoded['content'];
+            // Возвращаем контент, а информацию о need_confirm передаем через специальный формат
+            // need_confirm здесь означает что нужно показать кнопки подтверждения черновика
+            if (isset($decoded['need_confirm']) && $decoded['need_confirm'] === true) {
+                return $content."\n<!-- NEED_CONFIRM -->";
+            }
+
+            return $content;
         }
 
         Log::info('AI response is not JSON, returning as-is', [
