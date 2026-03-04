@@ -4,47 +4,57 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\DTOs\GoogleSheets\GoogleSheetsReadDto;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class ExecutorService
 {
-    private const EXECUTORS_SPREADSHEET_ID = '1PKFf72F2DuyfEXAz2bLwP5nyOdcqsqfH4qJGXB_b26E';
-
-    private const EXECUTORS_RANGE = 'A:L';
-
     private const CACHE_KEY = 'approved_executors';
 
     private const CACHE_TTL = 3600; // 1 hour
 
+    private const LOOKUPS_CACHE_KEY = 'tickets_app_lookups';
+
     public function __construct(
-        private readonly GoogleSheetsService $googleSheetsService
+        private readonly TicketsAppService $ticketsAppService
     ) {}
 
     /**
-     * @return array<int, array<string, string>>
+     * @return array<int, array<string, mixed>>
      */
     public function getApprovedExecutors(): array
     {
-        return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, fn (): array => $this->fetchExecutorsFromSheet());
+        /** @var array<int, array<string, mixed>> $result */
+        $result = Cache::remember(self::CACHE_KEY, self::CACHE_TTL, fn (): array => $this->fetchExecutorsFromApi());
+
+        return $result;
     }
 
     /**
-     * @return array<int, array<string, string>>
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    public function getLookups(): array
+    {
+        /** @var array<string, array<int, array<string, mixed>>> $result */
+        $result = Cache::remember(self::LOOKUPS_CACHE_KEY, self::CACHE_TTL, fn (): array => $this->ticketsAppService->getLookups());
+
+        return $result;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
      */
     public function refreshExecutorsCache(): array
     {
         Cache::forget(self::CACHE_KEY);
+        Cache::forget(self::LOOKUPS_CACHE_KEY);
 
         return $this->getApprovedExecutors();
     }
 
     /**
-     * Находит исполнителя по telegram username из списка утвержденных исполнителей
-     *
-     * @param  array<int, array<string, string>>|null  $executors
-     * @return array<string, string>|null
+     * @param  array<int, array<string, mixed>>|null  $executors
+     * @return array<string, mixed>|null
      */
     public function findExecutorByTelegramUsername(?string $username, ?array $executors = null): ?array
     {
@@ -61,7 +71,9 @@ class ExecutorService
         $approvedExecutors = $executors ?? $this->getApprovedExecutors();
 
         foreach ($approvedExecutors as $executor) {
-            $executorUsername = $this->normalizeTelegramUsername($executor['tg_username'] ?? null);
+            /** @var string|null $tgUsername */
+            $tgUsername = $executor['telegram_username'] ?? null;
+            $executorUsername = $this->normalizeTelegramUsername($tgUsername);
 
             if ($executorUsername !== '' && $executorUsername === $normalizedUsername) {
                 return $executor;
@@ -87,77 +99,31 @@ class ExecutorService
     }
 
     /**
-     * @return array<int, array<string, string>>
+     * @return array<int, array<string, mixed>>
      */
-    private function fetchExecutorsFromSheet(): array
+    private function fetchExecutorsFromApi(): array
     {
         try {
-            $readDto = new GoogleSheetsReadDto(
-                spreadsheetId: self::EXECUTORS_SPREADSHEET_ID,
-                range: self::EXECUTORS_RANGE
-            );
+            $executors = $this->ticketsAppService->getExecutors();
 
-            $response = $this->googleSheetsService->readValues($readDto);
+            if ($executors === []) {
+                Log::warning('No executors returned from tickets-app API');
 
-            if ($response->hasError()) {
-                Log::error('Failed to fetch executors from Google Sheets', [
-                    'error' => $response->errorMessage,
-                ]);
-
-                throw new \Exception("Failed to fetch executors from Google Sheets: {$response->errorMessage}");
+                return [];
             }
 
-            $values = $response->data['values'] ?? [];
-            $executors = [];
-            // Skip header row (index 0)
-            $counter = count($values);
-
-            // Skip header row (index 0)
-            for ($i = 1; $i < $counter; $i++) {
-                $row = $values[$i];
-
-                // Check if row has enough columns and status is "Подтверждаю"
-                if (count($row) >= 12) {
-                    $comment = trim($row[6] ?? ''); // Column G - "Комментарий Николая"
-
-                    if ($comment === 'Подтверждаю') {
-                        $shortCode = trim($row[3] ?? ''); // Column D - Аббревиатура
-                        $telegram = trim($row[5] ?? '');  // Column F - Telegram
-                        $position = trim($row[8] ?? '');  // Column I - Должность
-                        $firstName = trim($row[9] ?? ''); // Column J - Имя
-                        $lastName = trim($row[10] ?? ''); // Column K - Фамилия
-                        $middleName = trim($row[11] ?? ''); // Column L - Отчество
-
-                        // Собираем полное имя
-                        $fullName = trim("$lastName $firstName $middleName");
-
-                        if ($shortCode && $telegram && $fullName) {
-                            $executors[] = [
-                                'short_code' => $shortCode,
-                                'full_name' => $fullName,
-                                'position' => $position,
-                                'first_name' => $firstName,
-                                'last_name' => $lastName,
-                                'middle_name' => $middleName,
-                                'tg_username' => $telegram,
-                            ];
-                        }
-                    }
-                }
-            }
-
-            Log::info('Successfully fetched executors from Google Sheets', [
+            Log::info('Successfully fetched executors from tickets-app API', [
                 'count' => count($executors),
             ]);
 
             return $executors;
 
         } catch (\Throwable $e) {
-            Log::error('Exception occurred while fetching executors', [
+            Log::error('Exception occurred while fetching executors from tickets-app', [
                 'exception' => $e->getMessage(),
             ]);
 
-            throw new \Exception("Failed to fetch executors from Google Sheets: {$e->getMessage()}", $e->getCode(), $e);
+            throw new \RuntimeException("Failed to fetch executors from tickets-app: {$e->getMessage()}", $e->getCode(), $e);
         }
     }
 }
