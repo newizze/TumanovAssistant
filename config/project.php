@@ -51,4 +51,18 @@ return [
         'credentials_path' => base_path('credentials.json'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Tickets App Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for tickets-app API integration. The bot creates
+    | tickets via the tickets-app REST API instead of Google Sheets.
+    |
+    */
+    'tickets_app' => [
+        'base_url' => env('TICKETS_APP_BASE_URL', 'http://localhost:8000'),
+        'api_key' => env('TICKETS_APP_API_KEY'),
+    ],
+
 ];

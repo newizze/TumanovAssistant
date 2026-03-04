@@ -6,8 +6,8 @@ namespace App\Services;
 
 use App\DTOs\OpenAI\ResponseRequestDto;
 use App\Models\User;
-use App\Tools\AddRowToSheetsToolDefinition;
-use App\Tools\AddRowToSheetsToolHandler;
+use App\Tools\AddTicketToolDefinition;
+use App\Tools\AddTicketToolHandler;
 use Illuminate\Support\Facades\Log;
 
 class MessageProcessingService
@@ -20,10 +20,13 @@ class MessageProcessingService
     public function __construct(
         private readonly OpenAIResponseService $openAIService,
         private readonly PromptService $promptService,
-        private readonly AddRowToSheetsToolHandler $toolHandler,
+        private readonly AddTicketToolHandler $toolHandler,
         private readonly ExecutorService $executorService
     ) {}
 
+    /**
+     * @param  array<int, string>  $fileLinks
+     */
     public function processMessage(string $messageText, User $user, array $fileLinks = [], ?bool $requiresVerification = null): string
     {
         try {
@@ -47,17 +50,36 @@ class MessageProcessingService
                 $fileInfo .= "\n⚠️ ВАЖНО: При создании задачи эти ссылки ОБЯЗАТЕЛЬНО должны быть переданы в параметры file_link_1, file_link_2, file_link_3 соответственно!";
             }
 
-            // Получаем список исполнителей из Google Sheets
+            // Получаем список исполнителей и справочники из tickets-app
             $executors = $this->executorService->getApprovedExecutors();
-            config(['project.executors' => $executors]);
+            $lookups = $this->executorService->getLookups();
+            $priorities = $lookups['priorities'] ?? [];
+            $taskTypes = $lookups['task_types'] ?? [];
+
             $executorsList = '';
             foreach ($executors as $executor) {
-                $executorsList .= "• Код: {$executor['short_code']} | ФИО: {$executor['full_name']}";
-                if ($executor['position']) {
-                    $executorsList .= " | Должность: {$executor['position']}";
+                /** @var int|string $execId */
+                $execId = $executor['id'] ?? 0;
+                /** @var string $execCode */
+                $execCode = $executor['code'] ?? '';
+                /** @var string $execFullName */
+                $execFullName = $executor['full_name'] ?? '';
+                /** @var string $execPosition */
+                $execPosition = $executor['position'] ?? '';
+                /** @var string $execDepartment */
+                $execDepartment = $executor['department'] ?? '';
+                /** @var string $execTg */
+                $execTg = $executor['telegram_username'] ?? '';
+
+                $executorsList .= "• ID:{$execId} Код: {$execCode} | ФИО: {$execFullName}";
+                if ($execPosition !== '') {
+                    $executorsList .= " | Должность: {$execPosition}";
                 }
-                if ($executor['tg_username']) {
-                    $executorsList .= " | Telegram: {$executor['tg_username']}";
+                if ($execDepartment !== '') {
+                    $executorsList .= " | Отдел: {$execDepartment}";
+                }
+                if ($execTg !== '') {
+                    $executorsList .= " | Telegram: {$execTg}";
                 }
                 $executorsList .= "\n";
             }
@@ -69,8 +91,32 @@ class MessageProcessingService
             }
 
             // Получаем определение инструмента для промпта
-            $toolDefinitionArray = AddRowToSheetsToolDefinition::getDefinition($senderIdentifier);
-            $toolDefinition = json_encode($toolDefinitionArray, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            $toolDefinitionArray = AddTicketToolDefinition::getDefinition(
+                forcedSender: $senderIdentifier,
+                executors: $executors,
+                priorities: $priorities,
+                taskTypes: $taskTypes,
+            );
+            $toolDefinition = json_encode($toolDefinitionArray, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?: '{}';
+
+            // Формируем список приоритетов и типов задач для промпта
+            $prioritiesList = '';
+            foreach ($priorities as $priority) {
+                /** @var int|string $pId */
+                $pId = $priority['id'] ?? 0;
+                /** @var string $pName */
+                $pName = $priority['name'] ?? '';
+                $prioritiesList .= "• {$pId}:{$pName}\n";
+            }
+
+            $taskTypesList = '';
+            foreach ($taskTypes as $taskType) {
+                /** @var int|string $tId */
+                $tId = $taskType['id'] ?? 0;
+                /** @var string $tName */
+                $tName = $taskType['name'] ?? '';
+                $taskTypesList .= "• {$tId}:{$tName}\n";
+            }
 
             // Получаем промпт из XML файла
             $systemPrompt = $this->promptService->loadPrompt('task_creation', [
@@ -81,6 +127,8 @@ class MessageProcessingService
                 'telegram_username' => $user->username ?: 'unknown',
                 'sender_identifier' => $senderIdentifier,
                 'tool_definition' => $toolDefinition,
+                'priorities_list' => trim($prioritiesList),
+                'task_types_list' => trim($taskTypesList),
             ]);
 
             // Подготавливаем запрос к AI с инструментами (включаем файлы)
@@ -136,7 +184,7 @@ class MessageProcessingService
                 // Проверяем тип вызова функции и имя функции
                 if ($toolCall['type'] === 'function_call' &&
                     isset($toolCall['function']) &&
-                    $toolCall['function']['name'] === 'add_row_to_sheets') {
+                    $toolCall['function']['name'] === 'create_ticket') {
 
                     $arguments = $toolCall['function']['arguments'];
 
@@ -264,16 +312,15 @@ class MessageProcessingService
                 'tool_outputs_count' => count($toolOutputs),
             ]);
 
-            // Проверяем, были ли успешно выполнены tool calls для добавления в Google Sheets
-            $hasSuccessfulSheetsTool = false;
+            // Проверяем, были ли успешно выполнены tool calls для создания тикета
+            $hasSuccessfulTicketTool = false;
             foreach ($functionCalls as $functionCall) {
-                if ($functionCall['name'] === 'add_row_to_sheets') {
-                    // Находим соответствующий tool output
+                if ($functionCall['name'] === 'create_ticket') {
                     foreach ($toolOutputs as $toolOutput) {
                         if ($toolOutput['tool_call_id'] === ($functionCall['id'] ?? $functionCall['call_id'] ?? '')) {
                             $output = json_decode((string) $toolOutput['output'], true);
                             if ($output['success']) {
-                                $hasSuccessfulSheetsTool = true;
+                                $hasSuccessfulTicketTool = true;
                                 break 2;
                             }
                         }
@@ -281,14 +328,13 @@ class MessageProcessingService
                 }
             }
 
-            // Если успешно добавили запись в Google Sheets, сбрасываем conversation_id для избежания конфликтов
-            if ($hasSuccessfulSheetsTool) {
+            // Если успешно создали тикет, сбрасываем conversation_id
+            if ($hasSuccessfulTicketTool) {
                 $user->update(['conversation_id' => null]);
-                Log::info('Conversation ID reset after successful Google Sheets operation', [
+                Log::info('Conversation ID reset after successful ticket creation', [
                     'user_id' => $user->id,
                 ]);
 
-                // Возвращаем простое сообщение без деталей
                 return '💼 Задача поставлена 🔔 Ответственный уведомлен';
             }
 
@@ -323,7 +369,7 @@ class MessageProcessingService
             ]);
 
             if ($toolCall['type'] === 'function_call' &&
-                $toolCall['name'] === 'add_row_to_sheets') {
+                $toolCall['name'] === 'create_ticket') {
 
                 $arguments = $toolCall['arguments'];
 
@@ -335,15 +381,15 @@ class MessageProcessingService
                 $originalSender = $arguments['sender_name'] ?? null;
                 $arguments['sender_name'] = $senderIdentifier;
 
-                // Переопределяем requires_verification если он указан через кнопку
+                // Переопределяем needs_review если указано через кнопку
                 if ($requiresVerification !== null) {
-                    $originalRequiresVerification = $arguments['requires_verification'] ?? null;
-                    $arguments['requires_verification'] = $requiresVerification ? 'Да' : 'Нет';
+                    $originalNeedsReview = $arguments['needs_review'] ?? null;
+                    $arguments['needs_review'] = $requiresVerification ? 'Да' : 'Нет';
 
-                    Log::info('Requires verification overridden for tool call', [
+                    Log::info('Needs review overridden for tool call', [
                         'call_id' => $callId,
-                        'original_requires_verification' => $originalRequiresVerification,
-                        'resolved_requires_verification' => $arguments['requires_verification'],
+                        'original_needs_review' => $originalNeedsReview,
+                        'resolved_needs_review' => $arguments['needs_review'],
                         'user_id' => $user->id,
                     ]);
                 }
@@ -397,24 +443,31 @@ class MessageProcessingService
     }
 
     /**
-     * Возвращает идентификатор отправителя (код исполнителя или fallback с именем/юзернеймом)
+     * Возвращает telegram username отправителя для идентификации автора в tickets-app
      *
-     * @param  array<int, array<string, string>>|null  $executors
+     * @param  array<int, array<string, mixed>>|null  $executors
      */
     private function determineSenderIdentifier(User $user, ?array $executors = null): string
     {
-        $executors ??= $this->executorService->getApprovedExecutors();
+        // Для tickets-app мы передаём telegram_username как идентификатор автора
+        // tickets-app сам найдёт пользователя по telegram_username
+        $username = $user->username ? '@'.ltrim($user->username, '@') : null;
 
-        $matchedExecutor = $this->executorService->findExecutorByTelegramUsername($user->username, $executors);
-
-        if ($matchedExecutor !== null && ! empty($matchedExecutor['short_code'])) {
-            Log::info('Sender mapped to executor short code', [
+        if ($username !== null) {
+            Log::info('Sender identified by telegram username', [
                 'user_id' => $user->id,
-                'telegram_username' => $user->username,
-                'sender_short_code' => $matchedExecutor['short_code'],
+                'telegram_username' => $username,
             ]);
 
-            return $matchedExecutor['short_code'];
+            return $username;
+        }
+
+        // Fallback: пробуем найти по executor code
+        $executors ??= $this->executorService->getApprovedExecutors();
+        $matchedExecutor = $this->executorService->findExecutorByTelegramUsername($user->username, $executors);
+
+        if ($matchedExecutor !== null && ! empty($matchedExecutor['telegram_username'])) {
+            return (string) $matchedExecutor['telegram_username'];
         }
 
         $fallback = $this->formatFallbackSenderName($user);
@@ -475,10 +528,10 @@ class MessageProcessingService
 
                     if (in_array($extension, $imageExtensions)) {
                         // Для изображений используем markdown синтаксис ![alt](url)
-                        $fileSection .= "\n![Файл ".($index + 1)."](".$fileLink.")\n";
+                        $fileSection .= "\n![Файл ".($index + 1).']('.$fileLink.")\n";
                     } else {
                         // Для других файлов просто ссылка
-                        $fileSection .= ($index + 1).". ".$fileLink."\n";
+                        $fileSection .= ($index + 1).'. '.$fileLink."\n";
                     }
                 }
                 $content .= $fileSection;
